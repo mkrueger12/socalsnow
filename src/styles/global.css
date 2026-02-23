@@ -309,8 +309,28 @@ main {
   border-radius: 999px;
   background: var(--sky-100);
   color: var(--sky-600);
-  font-size: 0.62rem;
+  font-size: 0.78rem;
   letter-spacing: 0.03em;
+}
+
+.problem-icon--wind {
+  background: rgb(186 230 253 / 100%);
+  color: #0369a1;
+}
+
+.problem-icon--storm {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.problem-icon--wet {
+  background: rgb(219 234 254 / 100%);
+  color: #1d4ed8;
+}
+
+.problem-icon--standard {
+  background: rgb(226 232 240 / 100%);
+  color: #334155;
 }
 
 .danger-scale {

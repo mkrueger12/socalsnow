@@ -69,6 +69,8 @@ const homeJsonLd = {
   ]
 };
 
+const subscribed = Astro.url.searchParams.get("subscribed") === "1";
+
 const dangerClassByLevel: Record<string, string> = {
   Low: "danger-low",
   Moderate: "danger-moderate",
@@ -148,34 +150,59 @@ const dangerClassByLevel: Record<string, string> = {
     <article class="card">
       <h2>Weather Quick Glance</h2>
       <div class="grid" style="gap:0.6rem;">
-      {weatherQuickGlance.map((entry) => {
-        const lead = entry.leadStation;
-        if (!lead) return null;
-        return (
-          <article class="card" style="padding:0.7rem;">
-            <p style="margin:0;"><strong>{entry.range}</strong></p>
-            <p style="margin:0.25rem 0 0;">{lead.tempF}F, wind {lead.windMph} mph, precip {lead.precipIn}"</p>
-            <div style="display:flex;flex-wrap:wrap;gap:0.65rem;">
-              <a href={`/weather?range=${encodeURIComponent(entry.range)}`}>Weather</a>
-              <a href={`/observations?range=${encodeURIComponent(entry.range)}`}>Observations</a>
-              <a href={`/map?range=${encodeURIComponent(entry.range)}`}>Map</a>
-            </div>
-          </article>
-        );
-      })}
+        {weatherQuickGlance.map((entry) => {
+          const lead = entry.leadStation;
+          if (!lead) return null;
+          return (
+            <article class="card" style="padding:0.7rem;">
+              <p style="margin:0;"><strong>{entry.range}</strong></p>
+              <p style="margin:0.25rem 0 0;">{lead.tempF}F, wind {lead.windMph} mph, precip {lead.precipIn}"</p>
+              <div style="display:flex;flex-wrap:wrap;gap:0.65rem;">
+                <a href={`/weather?range=${encodeURIComponent(entry.range)}`}>Weather</a>
+                <a href={`/observations?range=${encodeURIComponent(entry.range)}`}>Observations</a>
+                <a href={`/map?range=${encodeURIComponent(entry.range)}`}>Map</a>
+              </div>
+            </article>
+          );
+        })}
       </div>
       <a href="/weather">See full weather links</a>
     </article>
-    <article class="card">
-      <h2>Get Summary Alerts</h2>
-      <p>Subscribe to receive new summary notifications during storm cycles.</p>
-      <form method="post" action="https://buttondown.com/api/emails/embed-subscribe/socalsnow" target="popupwindow">
-        <label>
-          Email
-          <input required type="email" name="email" />
-        </label>
-        <button class="button button-primary" type="submit">Subscribe</button>
-      </form>
+      <article class="card">
+        <h2>Get Summary Alerts</h2>
+        <p>Subscribe to receive new summary notifications during storm cycles.</p>
+        {subscribed ? (
+          <div class="card" style="border-left:4px solid #16a34a;margin:0 0 0.9rem 0;background:#f0fdf4;">
+            <p style="margin:0;">You are on the list - check your email to confirm your subscription.</p>
+          </div>
+        ) : null}
+        <form
+          class="card"
+          id="newsletter-form"
+          method="post"
+          action="/api/newsletter"
+          style="padding:0.75rem 0;"
+          data-subscribed={subscribed ? "1" : "0"}
+        >
+          <input type="hidden" name="renderedAt" id="newsletter-rendered-at" value="" />
+          <input type="hidden" name="referrer" value="homepage" />
+          <p hidden>
+            <label>Do not fill this out: <input name="website" /></label>
+          </p>
+          <label>
+            Name
+            <input name="name" maxlength="120" autocomplete="name" />
+          </label>
+          <label>
+            Email
+            <input required type="email" name="email" autocomplete="email" />
+          </label>
+          <label>
+            <input required type="checkbox" name="consent" value="1" />
+            I agree to receive newsletter emails and understand this is informational.
+          </label>
+          <button id="newsletter-submit" class="button button-primary" type="submit">Subscribe</button>
+        </form>
       <p class="meta" style="margin-top:0.65rem;">
         Prefer a feed reader? <a href="/rss.xml">Subscribe via RSS</a>
       </p>
@@ -238,4 +265,20 @@ const dangerClassByLevel: Record<string, string> = {
       </div>
     </article>
   </section>
+
+  <script is:inline>
+    const renderedAtInput = document.getElementById("newsletter-rendered-at");
+    const newsletterForm = document.getElementById("newsletter-form");
+    const newsletterSubmit = document.getElementById("newsletter-submit");
+
+    if (renderedAtInput) {
+      renderedAtInput.value = String(Date.now());
+    }
+
+    newsletterForm?.addEventListener("submit", () => {
+      if (!newsletterSubmit) return;
+      newsletterSubmit.setAttribute("disabled", "true");
+      newsletterSubmit.textContent = "Subscribing...";
+    });
+  </script>
 </BaseLayout>
