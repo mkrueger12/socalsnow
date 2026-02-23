@@ -3,10 +3,8 @@ import { getCollection } from "astro:content";
 import type { CollectionEntry } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ObservationCard from "../components/ObservationCard.astro";
-import DangerScale from "../components/DangerScale.astro";
 import AvalancheProblemBadge from "../components/AvalancheProblemBadge.astro";
 import { weatherQuickGlance } from "../data/weatherStations";
-import { avalancheProblemInfo } from "../data/avalancheProblems";
 import { sponsors } from "../data/sponsors";
 
 const summaries: CollectionEntry<"summaries">[] = await getCollection("summaries");
@@ -20,14 +18,6 @@ const observations: CollectionEntry<"observations">[] = (await getCollection("ob
       b.data.date.valueOf() - a.data.date.valueOf()
   )
   .slice(0, 3);
-const upcomingEvents: CollectionEntry<"events">[] = (await getCollection("events"))
-  .filter((event: CollectionEntry<"events">) => event.data.date.valueOf() >= Date.now())
-  .sort((a: CollectionEntry<"events">, b: CollectionEntry<"events">) => a.data.date.valueOf() - b.data.date.valueOf())
-  .slice(0, 2);
-const activeProblems = latestSummary.data.problems.map((problem: string) => ({
-  name: problem,
-  detail: avalancheProblemInfo[problem] ?? "Travel conservatively and evaluate snowpack structure in representative terrain."
-}));
 
 const homeJsonLd = {
   "@context": "https://schema.org",
@@ -42,90 +32,66 @@ const homeJsonLd = {
       "@type": "Article",
       headline: latestSummary.data.title,
       datePublished: latestSummary.data.date.toISOString(),
-      author: {
-        "@type": "Person",
-        name: latestSummary.data.author
-      },
+      author: { "@type": "Person", name: latestSummary.data.author },
       url: `https://www.socalsnow.org/conditions/${latestSummary.slug}`
-    },
-    {
-      "@type": "ItemList",
-      name: "Upcoming Education Events",
-      itemListElement: upcomingEvents.map((event, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        item: {
-          "@type": "Event",
-          name: event.data.title,
-          startDate: event.data.date.toISOString(),
-          location: {
-            "@type": "Place",
-            name: event.data.location
-          },
-          url: event.data.registrationUrl
-        }
-      }))
     }
   ]
 };
 
 const subscribed = Astro.url.searchParams.get("subscribed") === "1";
 
-const dangerClassByLevel: Record<string, string> = {
-  Low: "danger-low",
-  Moderate: "danger-moderate",
-  Considerable: "danger-considerable",
-  High: "danger-high",
-  Extreme: "danger-extreme"
+const dangerByRange = latestSummary.data.dangerByRange ?? [];
+const cardClassByLevel: Record<string, string> = {
+  Low: "danger-card--low",
+  Moderate: "danger-card--moderate",
+  Considerable: "danger-card--considerable",
+  High: "danger-card--high",
+  Extreme: "danger-card--extreme"
 };
 ---
 
 <BaseLayout title="So Cal Snow Avalanche Center | Current Conditions">
   <script type="application/ld+json" set:html={JSON.stringify(homeJsonLd)}></script>
-  <section class="container section" data-pagefind-filter="type:Home">
-    <div class="hero">
-      <p class="eyebrow">Current Conditions</p>
-      <h1>{latestSummary.data.title}</h1>
-      <p class="meta">{latestSummary.data.date.toDateString()} - {latestSummary.data.author}</p>
-      {(latestSummary.data.dangerByRange ?? []).length ? (
-        <div class="pill-row" style="margin-bottom:0.6rem;">
-          {(latestSummary.data.dangerByRange ?? []).map((danger: { range: string; level: string }) => (
+
+  <!-- 1. Danger Dashboard -->
+  <section class="danger-dashboard" data-pagefind-filter="type:Home">
+    <div class="container">
+      <p class="dashboard-eyebrow">Current Conditions</p>
+      <h1 class="dashboard-title">{latestSummary.data.title}</h1>
+      <p class="dashboard-date">{latestSummary.data.date.toDateString()} &middot; {latestSummary.data.author}</p>
+
+      {dangerByRange.length > 0 && (
+        <div class="danger-cards">
+          {dangerByRange.map((danger: { range: string; level: string }) => (
             <a
-              class:list={["pill", "danger-pill", dangerClassByLevel[danger.level] ?? ""]}
+              class:list={["danger-card", cardClassByLevel[danger.level] ?? ""]}
               href={`/observations?range=${encodeURIComponent(danger.range)}`}
             >
-              {danger.range}: {danger.level}
+              <span class="danger-card-range">{danger.range}</span>
+              <span class="danger-card-level">{danger.level}</span>
+              <span class="danger-card-bar"></span>
             </a>
           ))}
         </div>
-      ) : null}
-      <p>{latestSummary.data.excerpt}</p>
-      <div class="pill-row">
-        {latestSummary.data.problems.map((problem: string) => <AvalancheProblemBadge name={problem} />)}
-      </div>
-      <p><a class="button button-primary" href={`/conditions/${latestSummary.slug}`}>Read Full Summary</a></p>
+      )}
+
+      {latestSummary.data.problems.length > 0 && (
+        <div class="dashboard-problems">
+          <span class="dashboard-problems-label">Active Problems</span>
+          <div class="pill-row">
+            {latestSummary.data.problems.map((problem: string) => <AvalancheProblemBadge name={problem} />)}
+          </div>
+        </div>
+      )}
+
+      <p class="dashboard-excerpt">{latestSummary.data.excerpt}</p>
+      <a class="button button-on-dark" href={`/conditions/${latestSummary.slug}`}>Read Full Summary</a>
     </div>
   </section>
 
+  <!-- 2. Recent Observations -->
   <section class="section container">
-    <h2>Active Avalanche Problems</h2>
-    <div class="grid grid-3">
-      {activeProblems.map((problem: { name: string; detail: string }) => (
-        <article class="card problem-card">
-          <h3><AvalancheProblemBadge name={problem.name} /></h3>
-          <p>{problem.detail}</p>
-        </article>
-      ))}
-    </div>
-  </section>
-
-  <section class="section container">
-    <h2>Avalanche Danger Scale</h2>
-    <DangerScale active={(latestSummary.data.dangerByRange ?? []).map((entry: { level: string }) => entry.level)} />
-  </section>
-
-  <section class="section container">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;">
+    <div class="section-header">
       <h2>Recent Observations</h2>
       <a href="/observations">View all</a>
     </div>
@@ -146,124 +112,63 @@ const dangerClassByLevel: Record<string, string> = {
     </div>
   </section>
 
-  <section class="section container grid grid-2">
-    <article class="card">
-      <h2>Weather Quick Glance</h2>
-      <div class="grid" style="gap:0.6rem;">
-        {weatherQuickGlance.map((entry) => {
-          const lead = entry.leadStation;
-          if (!lead) return null;
-          return (
-            <article class="card" style="padding:0.7rem;">
-              <p style="margin:0;"><strong>{entry.range}</strong></p>
-              <p style="margin:0.25rem 0 0;">{lead.tempF}F, wind {lead.windMph} mph, precip {lead.precipIn}"</p>
-              <div style="display:flex;flex-wrap:wrap;gap:0.65rem;">
-                <a href={`/weather?range=${encodeURIComponent(entry.range)}`}>Weather</a>
-                <a href={`/observations?range=${encodeURIComponent(entry.range)}`}>Observations</a>
-                <a href={`/map?range=${encodeURIComponent(entry.range)}`}>Map</a>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-      <a href="/weather">See full weather links</a>
-    </article>
-      <article class="card">
-        <h2>Get Summary Alerts</h2>
-        <p>Subscribe to receive new summary notifications during storm cycles.</p>
-        {subscribed ? (
-          <div class="card" style="border-left:4px solid #16a34a;margin:0 0 0.9rem 0;background:#f0fdf4;">
-            <p style="margin:0;">You are on the list - check your email to confirm your subscription.</p>
+  <!-- 3. Weather -->
+  <section class="section container">
+    <div class="section-header">
+      <h2>Weather</h2>
+      <a href="/weather">Full details</a>
+    </div>
+    <div class="weather-grid">
+      {weatherQuickGlance.map((entry) => {
+        const lead = entry.leadStation;
+        if (!lead) return null;
+        return (
+          <div class="weather-row">
+            <strong class="weather-range">{entry.range}</strong>
+            <span class="weather-stat">{lead.tempF}°F</span>
+            <span class="weather-stat">Wind {lead.windMph} mph</span>
+            <span class="weather-stat">Precip {lead.precipIn}"</span>
+            <a href={`/weather?range=${encodeURIComponent(entry.range)}`}>Details</a>
           </div>
-        ) : null}
-        <form
-          class="card"
-          id="newsletter-form"
-          method="post"
-          action="/api/newsletter"
-          style="padding:0.75rem 0;"
-          data-subscribed={subscribed ? "1" : "0"}
-        >
-          <input type="hidden" name="renderedAt" id="newsletter-rendered-at" value="" />
-          <input type="hidden" name="referrer" value="homepage" />
-          <p hidden>
-            <label>Do not fill this out: <input name="website" /></label>
-          </p>
-          <label>
-            Name
-            <input name="name" maxlength="120" autocomplete="name" />
-          </label>
-          <label>
-            Email
-            <input required type="email" name="email" autocomplete="email" />
-          </label>
-          <label>
-            <input required type="checkbox" name="consent" value="1" />
-            I agree to receive newsletter emails and understand this is informational.
-          </label>
-          <button id="newsletter-submit" class="button button-primary" type="submit">Subscribe</button>
-        </form>
-      <p class="meta" style="margin-top:0.65rem;">
-        Prefer a feed reader? <a href="/rss.xml">Subscribe via RSS</a>
-      </p>
-    </article>
-  </section>
-
-  <section class="section container">
-    <article class="card" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem;">
-      <div>
-        <h2 style="margin:0;">Support SCSAC</h2>
-        <p style="margin:0.35rem 0 0;">Help keep avalanche awareness information free for the SoCal backcountry community.</p>
-      </div>
-      <a class="button button-primary" href="/donate">Donate</a>
-    </article>
-    <div class="card" style="margin-top:0.8rem;">
-      <p class="meta" style="margin-top:0;">Supported by</p>
-      <div class="supporter-row">
-        {sponsors.map((sponsor) => (
-          <a href={sponsor.url} target="_blank" rel="noreferrer">{sponsor.name}</a>
-        ))}
-      </div>
+        );
+      })}
     </div>
   </section>
 
+  <!-- 4. Stay Connected -->
   <section class="section container">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;">
-      <h2>Upcoming Education Events</h2>
-      <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
-        <a href="/learn/events">View all events</a>
-        <a href="/learn/events.ics">Calendar feed</a>
-      </div>
+    <div class="grid grid-3 stay-connected">
+      <article class="card">
+        <h3>Get Condition Alerts</h3>
+        <p>New summary notifications during storm cycles.</p>
+        {subscribed ? (
+          <p style="color:#15803d;font-weight:500;">Subscribed -- check your email to confirm.</p>
+        ) : (
+          <form id="newsletter-form" method="post" action="/api/newsletter" class="compact-form">
+            <input type="hidden" name="renderedAt" id="newsletter-rendered-at" value="" />
+            <input type="hidden" name="referrer" value="homepage" />
+            <p hidden><label>Leave blank <input name="website" /></label></p>
+            <input required type="email" name="email" placeholder="your@email.com" autocomplete="email" />
+            <label class="consent-label">
+              <input required type="checkbox" name="consent" value="1" />
+              <span>I agree to receive emails.</span>
+            </label>
+            <button id="newsletter-submit" class="button button-primary" type="submit">Subscribe</button>
+          </form>
+        )}
+        <p class="meta" style="margin-top:0.5rem;"><a href="/rss.xml">Or use RSS</a></p>
+      </article>
+      <article class="card">
+        <h3>Learn About Safety</h3>
+        <p>New to backcountry travel? Start with the danger scale, then review conditions before heading out.</p>
+        <a class="button button-secondary" href="/learn">Start learning</a>
+      </article>
+      <article class="card">
+        <h3>Support SCSAC</h3>
+        <p>Help keep avalanche awareness free for the SoCal backcountry community.</p>
+        <a class="button button-primary" href="/donate">Donate</a>
+      </article>
     </div>
-    <div class="grid grid-2">
-      {upcomingEvents.length ? (
-        upcomingEvents.map((event) => (
-          <article class="card">
-            <p class="meta">{event.data.date.toDateString()} - {event.data.location}</p>
-            <h3>{event.data.title}</h3>
-            <p>{event.data.summary || event.data.excerpt}</p>
-            <a href={event.data.registrationUrl} target="_blank" rel="noreferrer">Register</a>
-          </article>
-        ))
-      ) : (
-        <article class="card">
-          <p>No upcoming events posted yet. Check back soon for new avalanche awareness classes.</p>
-        </article>
-      )}
-    </div>
-  </section>
-
-  <section class="section container">
-    <article class="card" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem;">
-      <div>
-        <h2 style="margin:0;">New to Backcountry Travel?</h2>
-        <p style="margin:0.35rem 0 0;">Start with the danger scale, then review current conditions before heading out.</p>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
-        <a class="button button-secondary" href="/learn/danger-scale">Learn danger levels</a>
-        <a class="button button-primary" href="/learn/events">Find a class</a>
-      </div>
-    </article>
   </section>
 
   <script is:inline>
