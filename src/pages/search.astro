@@ -1,0 +1,41 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Search | So Cal Snow">
+  <section class="container section" style="max-width:860px;">
+    <h1>Search Conditions and Observations</h1>
+    <p>Full-text search is powered by Pagefind at build time. Use filters to narrow by content type.</p>
+    <div class="search-shortcuts" aria-label="Suggested searches">
+      <a class="pill" href="/search?q=wind+slab">Wind slab</a>
+      <a class="pill" href="/search?q=San+Gabriel">San Gabriel</a>
+      <a class="pill" href="/search?q=education">Education</a>
+      <a class="pill" href="/search?q=weather">Weather</a>
+      <a class="pill" href="/search?q=donate">Donate</a>
+    </div>
+    <div id="search"></div>
+  </section>
+
+  <script src="/pagefind/pagefind-ui.js" is:inline></script>
+  <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />
+  <script is:inline>
+    const query = new URLSearchParams(window.location.search).get("q") || "";
+    new window["PagefindUI"]({
+      element: "#search",
+      showImages: false,
+      showFilters: true,
+      showSubResults: true,
+      excerptLength: 24,
+      search: query
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .search-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+  }
+</style>

@@ -1,0 +1,51 @@
+---
+interface Props {
+  currentPath: string;
+}
+
+const { currentPath } = Astro.props;
+
+const links = [
+  { href: "/conditions", label: "Conditions" },
+  { href: "/weather", label: "Weather" },
+  { href: "/observations", label: "Observations" },
+  { href: "/map", label: "Map" },
+  { href: "/learn", label: "Learn" },
+  { href: "/about", label: "About" }
+];
+---
+
+<header class="site-header">
+  <div class="container nav-row">
+    <a href="/" class="wordmark">SoCalSnow</a>
+    <nav class="desktop-nav" aria-label="Main navigation">
+      {links.map((link) => (
+        <a
+          class:list={["nav-link", currentPath.startsWith(link.href) && "active"]}
+          href={link.href}
+          aria-current={currentPath.startsWith(link.href) ? "page" : undefined}
+        >
+          {link.label}
+        </a>
+      ))}
+      <form class="search-form" action="/search" method="get" role="search" aria-label="Site search">
+        <input class="search-input" type="search" name="q" placeholder="Search reports" />
+      </form>
+      <a class="button button-primary" href="/donate">Donate</a>
+    </nav>
+    <details class="mobile-nav">
+      <summary aria-label="Open menu">Menu</summary>
+      <div class="mobile-panel">
+        {links.map((link) => (
+          <a class="mobile-link" href={link.href} aria-current={currentPath.startsWith(link.href) ? "page" : undefined}>{link.label}</a>
+        ))}
+        <form class="mobile-search-form" action="/search" method="get" role="search" aria-label="Site search">
+          <input class="search-input" type="search" name="q" placeholder="Search reports" />
+        </form>
+        <a class="button button-primary" href="/donate">Donate</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<a class="mobile-conditions-bar" href="/conditions">Current Conditions</a>

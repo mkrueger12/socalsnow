@@ -1,0 +1,95 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { resources } from "../../data/resources";
+import DangerScale from "../../components/DangerScale.astro";
+---
+
+<BaseLayout title="Resources | So Cal Snow">
+  <section class="container section" data-pagefind-filter="type:Resource">
+    <h1>Resources</h1>
+    <div class="card" style="margin-bottom:1rem;">
+      <label>
+        Search resources
+        <input id="resource-search" type="search" placeholder="education providers, tools, centers" />
+      </label>
+      <p id="resource-count" class="meta" style="margin:0.5rem 0 0;" aria-live="polite"></p>
+    </div>
+    <h2>Danger Scale</h2>
+    <p>Use this scale as a quick travel planning reference before entering avalanche terrain.</p>
+    <DangerScale />
+
+    <h2 style="margin-top:2rem;">External Links</h2>
+    <div class="grid grid-3" id="resource-grid">
+      <article class="card resource-group" data-category="education" data-text={resources.education.map((item) => item.label).join(" ").toLowerCase()}>
+        <h2>Education</h2>
+        <ul>
+          {resources.education.map((item) => (
+            <li><a href={item.url} target="_blank" rel="noreferrer">{item.label}</a></li>
+          ))}
+        </ul>
+      </article>
+      <article class="card resource-group" data-category="centers" data-text={resources.centers.map((item) => item.label).join(" ").toLowerCase()}>
+        <h2>Nearby Centers</h2>
+        <ul>
+          {resources.centers.map((item) => (
+            <li><a href={item.url} target="_blank" rel="noreferrer">{item.label}</a></li>
+          ))}
+        </ul>
+      </article>
+      <article class="card resource-group" data-category="tools" data-text={resources.tools.map((item) => item.label).join(" ").toLowerCase()}>
+        <h2>Tools</h2>
+        <ul>
+          {resources.tools.map((item) => (
+            <li><a href={item.url} target="_blank" rel="noreferrer">{item.label}</a></li>
+          ))}
+        </ul>
+      </article>
+    </div>
+
+    <article id="resource-empty" class="card" hidden style="margin-top:1rem;">
+      <h2>No matching resources</h2>
+      <p>Try broader keywords like "weather", "education", or "avalanche".</p>
+    </article>
+  </section>
+
+  <script is:inline>
+    const input = document.getElementById("resource-search");
+    const count = document.getElementById("resource-count");
+    const cards = Array.from(document.querySelectorAll(".resource-group"));
+    const empty = document.getElementById("resource-empty");
+
+    const render = () => {
+      const query = (input?.value || "").trim().toLowerCase();
+      let visible = 0;
+
+      cards.forEach((card) => {
+        const text = card.getAttribute("data-text") || "";
+        const show = !query || text.includes(query);
+        card.style.display = show ? "block" : "none";
+        if (show) visible += 1;
+      });
+
+      if (count) {
+        count.textContent = `${visible} resource section${visible === 1 ? "" : "s"} shown`;
+      }
+
+      if (empty) {
+        empty.hidden = visible > 0;
+      }
+    };
+
+    input?.addEventListener("input", render);
+    render();
+  </script>
+</BaseLayout>
+
+<style>
+  #resource-search {
+    width: 100%;
+    border: 1px solid #bdd0e4;
+    border-radius: 8px;
+    margin-top: 0.2rem;
+    padding: 0.55rem;
+    font: inherit;
+  }
+</style>

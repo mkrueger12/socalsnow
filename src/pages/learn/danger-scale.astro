@@ -1,0 +1,33 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DangerScaleComponent from "../../components/DangerScale.astro";
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+
+const summaries: CollectionEntry<"summaries">[] = await getCollection("summaries");
+const latestSummary = summaries.sort(
+  (a: CollectionEntry<"summaries">, b: CollectionEntry<"summaries">) => b.data.date.valueOf() - a.data.date.valueOf()
+)[0];
+const activeLevels = (latestSummary?.data.dangerByRange ?? []).map((item: { level: string }) => item.level);
+---
+
+<BaseLayout title="Danger Scale | So Cal Snow">
+  <section class="container section" data-pagefind-filter="type:Resource">
+    <h1>North American Avalanche Danger Scale</h1>
+    <p>This reference supports trip planning and terrain decisions before your tour.</p>
+    {latestSummary ? (
+      <p class="meta" style="margin-top:0;">
+        Currently referenced in summary from {latestSummary.data.date.toDateString()} ({latestSummary.data.author}).
+      </p>
+    ) : null}
+    <DangerScaleComponent active={activeLevels} />
+    <div class="card" style="margin-top:1rem;">
+      <h2 style="margin-top:0;">Before You Go</h2>
+      <ul>
+        <li><a href="/conditions">Read the latest snowpack summary</a></li>
+        <li><a href="/observations">Review recent field observations</a></li>
+        <li><a href="/weather">Check weather by range</a></li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>

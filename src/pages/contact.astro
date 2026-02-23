@@ -1,0 +1,101 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const sent = Astro.url.searchParams.get("sent") === "1";
+---
+
+<BaseLayout
+  title="Contact | So Cal Snow"
+  description="Contact So Cal Snow Avalanche Center for questions, partnerships, event coordination, and media inquiries."
+>
+  <section class="container section" style="max-width:760px;" data-pagefind-filter="type:Contact">
+    <h1>Contact</h1>
+    <p>Questions, partnerships, or media inquiries.</p>
+    {sent ? (
+      <article class="card" style="border-left:4px solid #16a34a;margin-bottom:1rem;">
+        <p style="margin:0;">Message sent. Thanks for contacting SCSAC - we will reply soon.</p>
+      </article>
+    ) : null}
+    <form id="contact-form" class="card" method="POST" action="/api/contact">
+      <input type="hidden" name="renderedAt" id="contact-rendered-at" value="" />
+      <p hidden>
+        <label>Leave blank <input name="website" /></label>
+      </p>
+      <label>Name <input required name="name" maxlength="120" /></label>
+      <label>Email <input required type="email" name="email" maxlength="200" /></label>
+      <label>
+        Topic
+        <select required name="subject">
+          <option value="">Choose one</option>
+          <option>General Question</option>
+          <option>Partnership / Sponsorship</option>
+          <option>Education Event</option>
+          <option>Media Inquiry</option>
+          <option>Website Feedback</option>
+        </select>
+      </label>
+      <label>
+        Message
+        <textarea id="contact-message" required name="message" rows="6" maxlength="3000"></textarea>
+        <span id="contact-message-count" class="meta">0 / 3000</span>
+      </label>
+      <button id="contact-submit" class="button button-primary" type="submit">Send Message</button>
+    </form>
+  </section>
+</BaseLayout>
+
+<style>
+  form {
+    display: grid;
+    gap: 0.8rem;
+  }
+  input,
+  select,
+  textarea {
+    width: 100%;
+    border: 1px solid #bdd0e4;
+    border-radius: 8px;
+    margin-top: 0.2rem;
+    padding: 0.55rem;
+    font: inherit;
+  }
+</style>
+
+<script is:inline>
+  const form = document.getElementById("contact-form");
+  const submit = document.getElementById("contact-submit");
+  const renderedAt = document.getElementById("contact-rendered-at");
+  const subjectInput = form?.querySelector('select[name="subject"]');
+  const messageInput = form?.querySelector('textarea[name="message"]');
+  const messageCount = document.getElementById("contact-message-count");
+
+  const params = new URLSearchParams(window.location.search);
+  const subjectFromQuery = params.get("subject") || "";
+  const messageFromQuery = params.get("message") || "";
+
+  if (renderedAt) {
+    renderedAt.value = String(Date.now());
+  }
+
+  if (subjectInput && Array.from(subjectInput.options).some((option) => option.value === subjectFromQuery)) {
+    subjectInput.value = subjectFromQuery;
+  }
+
+  if (messageInput && messageFromQuery) {
+    messageInput.value = messageFromQuery;
+  }
+
+  const updateCount = () => {
+    if (!messageInput || !messageCount) return;
+    messageCount.textContent = `${messageInput.value.length} / 3000`;
+  };
+
+  messageInput?.addEventListener("input", updateCount);
+  updateCount();
+
+  form?.addEventListener("submit", () => {
+    if (!submit) return;
+    submit.setAttribute("disabled", "true");
+    submit.textContent = "Sending...";
+  });
+</script>

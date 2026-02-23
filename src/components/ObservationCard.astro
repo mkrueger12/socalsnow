@@ -1,0 +1,37 @@
+---
+interface Props {
+  slug: string;
+  title: string;
+  location: string;
+  mountainRange: string;
+  date: Date;
+  elevationFt: number;
+  author: string;
+  excerpt: string;
+  photoUrl?: string;
+}
+
+const { slug, title, location, mountainRange, date, elevationFt, author, excerpt, photoUrl } = Astro.props;
+
+const rangeClass =
+  mountainRange === "San Gabriel"
+    ? "range-san-gabriel"
+    : mountainRange === "San Bernardino"
+      ? "range-san-bernardino"
+      : mountainRange === "San Jacinto"
+        ? "range-san-jacinto"
+        : "range-default";
+---
+
+<article class:list={["card", "observation-card", rangeClass, photoUrl && "has-image"]}>
+  {photoUrl ? <img class="observation-image" src={photoUrl} alt={`Observation from ${location}`} loading="lazy" /> : null}
+  <div class="observation-content">
+    <p class="meta">{mountainRange} - {location}</p>
+    <h3>{title}</h3>
+    <p class="observation-excerpt">{excerpt}</p>
+    <p class="meta">
+      {date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - {elevationFt}' - {author}
+    </p>
+    <a href={`/observations/${slug}`}>Read observation</a>
+  </div>
+</article>

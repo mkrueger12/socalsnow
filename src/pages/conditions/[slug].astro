@@ -1,0 +1,198 @@
+---
+import { getCollection, getEntry } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import AvalancheProblemBadge from "../../components/AvalancheProblemBadge.astro";
+import { avalancheProblemInfo } from "../../data/avalancheProblems";
+
+export async function getStaticPaths() {
+  const summaries: CollectionEntry<"summaries">[] = await getCollection("summaries");
+  return summaries.map((summary: CollectionEntry<"summaries">) => ({ params: { slug: summary.slug } }));
+}
+
+const { slug } = Astro.params;
+const summary = await getEntry("summaries", slug!);
+
+if (!summary) {
+  return Astro.redirect("/conditions");
+}
+
+const { Content } = await summary.render();
+const allSummaries: CollectionEntry<"summaries">[] = (await getCollection("summaries")).sort(
+  (a: CollectionEntry<"summaries">, b: CollectionEntry<"summaries">) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+const currentIndex = allSummaries.findIndex((item: CollectionEntry<"summaries">) => item.slug === summary.slug);
+const newerSummary = currentIndex > 0 ? allSummaries[currentIndex - 1] : null;
+const olderSummary = currentIndex >= 0 && currentIndex < allSummaries.length - 1 ? allSummaries[currentIndex + 1] : null;
+
+const activeProblems = summary.data.problems.map((problem: string) => ({
+  name: problem,
+  detail: avalancheProblemInfo[problem] ?? "Travel conservatively and evaluate local snowpack structure before committing to steep terrain."
+}));
+
+const dangerClassByLevel: Record<string, string> = {
+  Low: "danger-low",
+  Moderate: "danger-moderate",
+  Considerable: "danger-considerable",
+  High: "danger-high",
+  Extreme: "danger-extreme"
+};
+const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: summary.data.title,
+  datePublished: summary.data.date.toISOString(),
+  author: {
+    "@type": "Person",
+    name: summary.data.author
+  },
+  description: summary.data.excerpt,
+  url: new URL(`/conditions/${summary.slug}`, Astro.site ?? "https://www.socalsnow.org").toString()
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: new URL("/", Astro.site ?? "https://www.socalsnow.org").toString()
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Conditions",
+      item: new URL("/conditions", Astro.site ?? "https://www.socalsnow.org").toString()
+    },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: summary.data.title,
+      item: new URL(`/conditions/${summary.slug}`, Astro.site ?? "https://www.socalsnow.org").toString()
+    }
+  ]
+};
+---
+
+<BaseLayout
+  title={`${summary.data.title} | So Cal Snow`}
+  description={summary.data.excerpt}
+  ogType="article"
+  publishedTime={summary.data.date.toISOString()}
+>
+  <script type="application/ld+json" set:html={JSON.stringify(articleJsonLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbJsonLd)}></script>
+  <section class="container section prose" data-pagefind-filter="type:Summary">
+    <nav class="meta" aria-label="Breadcrumb" style="margin-bottom:0.5rem;">
+      <a href="/">Home</a> / <a href="/conditions">Conditions</a> / <a href="/conditions/archive">Archive</a>
+    </nav>
+    <p class="meta">Published {summary.data.date.toDateString()} - {summary.data.author}</p>
+    <h1>{summary.data.title}</h1>
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0 0 0.9rem;">
+      <button id="share-summary" class="button button-secondary" type="button">Share summary</button>
+      <a class="button button-secondary" href="/conditions/archive">Archive</a>
+    </div>
+    {(summary.data.dangerByRange ?? []).length ? (
+      <div class="pill-row" style="margin: 0 0 0.7rem;">
+        {(summary.data.dangerByRange ?? []).map((danger: { range: string; level: string }) => (
+          <a
+            class:list={["pill", "danger-pill", dangerClassByLevel[danger.level] ?? ""]}
+            href={`/observations?range=${encodeURIComponent(danger.range)}`}
+          >
+            {danger.range}: {danger.level}
+          </a>
+        ))}
+      </div>
+    ) : null}
+    <div class="pill-row" style="margin: 0 0 0.9rem;">
+      {summary.data.problems.map((problem: string) => (
+        <AvalancheProblemBadge name={problem} />
+      ))}
+    </div>
+    <div class="grid">
+      {activeProblems.map((problem: { name: string; detail: string }) => (
+        <article class="card">
+          <h3><AvalancheProblemBadge name={problem.name} /></h3>
+          <p>{problem.detail}</p>
+        </article>
+      ))}
+    </div>
+    <div class="card warning">
+      So Cal Snow Avalanche Center provides avalanche awareness information and community reports. This is not an official avalanche forecast.
+    </div>
+
+    <div class="card" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.8rem;margin-bottom:1rem;">
+      <p style="margin:0;">Seen new snowpack changes since this summary? Share an observation to help other travelers.</p>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <a class="button button-secondary" href="/observations">View observations</a>
+        <a class="button button-primary" href="/observations/submit">Submit observation</a>
+      </div>
+    </div>
+
+    <Content />
+
+    <nav class="summary-nav" aria-label="Summary navigation">
+      {newerSummary ? (
+        <a class="button button-secondary" href={`/conditions/${newerSummary.slug}`}>Newer Summary</a>
+      ) : (
+        <span></span>
+      )}
+      {olderSummary ? (
+        <a class="button button-secondary" href={`/conditions/${olderSummary.slug}`}>Older Summary</a>
+      ) : null}
+    </nav>
+  </section>
+</BaseLayout>
+
+<script is:inline>
+  const shareButton = document.getElementById("share-summary");
+
+  shareButton?.addEventListener("click", async () => {
+    const url = window.location.href;
+    const title = document.title;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch {
+      }
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        shareButton.textContent = "Link copied";
+        window.setTimeout(() => {
+          shareButton.textContent = "Share summary";
+        }, 1200);
+        return;
+      }
+    } catch {
+    }
+
+    window.prompt("Copy this link", url);
+  });
+</script>
+
+<style>
+  .meta {
+    margin: 0;
+    color: var(--slate-700);
+  }
+  .prose {
+    max-width: 760px;
+  }
+  .warning {
+    border-left: 4px solid var(--danger-high);
+    margin: 1rem 0;
+  }
+  .summary-nav {
+    margin-top: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+</style>

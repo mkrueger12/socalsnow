@@ -1,0 +1,276 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const submitted = Astro.url.searchParams.get("submitted") === "1";
+
+const presetsByZone: Record<string, string[]> = {
+  "San Gabriel": ["Angeles Crest", "Mt. Baldy", "Baden-Powell"],
+  "San Bernardino": ["Big Bear Summit", "Angelus Oaks", "San Gorgonio"],
+  "San Jacinto": ["Round Valley", "San Jacinto Peak", "Tram Ridge"]
+};
+---
+
+<BaseLayout title="Submit Observation | So Cal Snow">
+  <section class="container section" style="max-width:760px;" data-pagefind-filter="type:Observation">
+    <h1>Submit a Field Observation</h1>
+    <p>Your report enters a moderation queue and helps the SoCal backcountry community make safer decisions.</p>
+    {submitted ? (
+      <article class="card" style="border-left:4px solid #16a34a;margin-bottom:1rem;">
+        <p style="margin:0;">Observation received. Thanks for contributing - staff has been notified.</p>
+      </article>
+    ) : null}
+
+    <form
+      id="observation-form"
+      class="card"
+      method="POST"
+      action="/api/submit-observation"
+      enctype="multipart/form-data"
+      data-submitted={submitted ? "1" : "0"}
+    >
+      <input type="hidden" name="renderedAt" id="observation-rendered-at" value="" />
+      <p hidden>
+        <label>
+          Do not fill this out: <input name="website" />
+        </label>
+      </p>
+
+      <label>Name <input required name="name" maxlength="120" /></label>
+      <label>Email <input required type="email" name="email" maxlength="200" /></label>
+      <label>Date <input required type="date" name="date" /></label>
+
+      <label>
+        Mountain Range
+        <select required name="zone">
+          <option value="">Select one</option>
+          <option>San Gabriel</option>
+          <option>San Bernardino</option>
+          <option>San Jacinto</option>
+        </select>
+      </label>
+
+      <label>
+        Common Location
+        <select name="locationPreset" id="location-preset" data-presets={JSON.stringify(presetsByZone)}>
+          <option value="">Choose from common zones (optional)</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+
+      <label>
+        Location Details
+        <input name="location" placeholder="Trailhead, bowl, ridgeline, or waypoint" maxlength="180" />
+        <span class="meta">Provide details, or choose a common location above.</span>
+      </label>
+      <label>Elevation (ft) <input required type="number" min="0" max="20000" name="elevation" /></label>
+      <label>Aspect <input required name="aspect" placeholder="N, NE, E, etc" maxlength="30" /></label>
+      <div class="grid grid-2">
+        <label>Latitude (optional) <input type="number" step="0.0001" min="-90" max="90" name="latitude" /></label>
+        <label>Longitude (optional) <input type="number" step="0.0001" min="-180" max="180" name="longitude" /></label>
+      </div>
+      <fieldset class="snowpit-group">
+        <legend>Snowpit and Stability (optional)</legend>
+        <div class="grid grid-2">
+          <label>Snow depth (cm) <input type="number" min="0" name="snowDepthCm" /></label>
+          <label>New snow (cm) <input type="number" min="0" name="newSnowCm" /></label>
+          <label>Test type <input name="stabilityTest" placeholder="ECT, CT, PST" maxlength="30" /></label>
+          <label>Test result <input name="stabilityResult" placeholder="ECTP13, CTM14, etc" maxlength="40" /></label>
+        </div>
+      </fieldset>
+      <label>
+        Narrative
+        <textarea id="observation-narrative" required name="narrative" rows="6" maxlength="5000"></textarea>
+        <span id="observation-narrative-count" class="meta">0 / 5000</span>
+      </label>
+      <label>Photos <input type="file" name="photos" accept="image/*" multiple /></label>
+      <label>
+        <input required type="checkbox" name="agreePolicy" value="yes" />
+        I understand this is an awareness submission and not an official avalanche forecast.
+      </label>
+      <div class="meta" style="display:flex;justify-content:space-between;gap:0.75rem;align-items:center;">
+        <span id="draft-status">Draft autosaves on this device.</span>
+        <button id="clear-draft" class="button button-secondary" type="button">Clear draft</button>
+      </div>
+      <button id="observation-submit" class="button button-primary" type="submit">Send Observation</button>
+    </form>
+  </section>
+</BaseLayout>
+
+<style>
+  form {
+    display: grid;
+    gap: 0.8rem;
+  }
+  input,
+  select,
+  textarea {
+    width: 100%;
+    border: 1px solid #bdd0e4;
+    border-radius: 8px;
+    margin-top: 0.2rem;
+    padding: 0.55rem;
+    font: inherit;
+  }
+  label .meta {
+    display: block;
+    margin-top: 0.25rem;
+  }
+  .snowpit-group {
+    border: 1px solid #d4e2ef;
+    border-radius: 10px;
+    padding: 0.75rem;
+    margin: 0;
+  }
+  .snowpit-group legend {
+    font-weight: 600;
+    padding: 0 0.25rem;
+  }
+</style>
+
+<script is:inline>
+  const zone = document.querySelector('select[name="zone"]');
+  const preset = document.getElementById("location-preset");
+
+  const parsePresets = () => {
+    try {
+      return JSON.parse(preset?.getAttribute("data-presets") || "{}");
+    } catch {
+      return {};
+    }
+  };
+
+  const updatePresetOptions = () => {
+    if (!zone || !preset) return;
+
+    const data = parsePresets();
+    const selectedZone = zone.value;
+    const locations = data[selectedZone] || [];
+
+    const previous = preset.value;
+    preset.innerHTML = "";
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Choose from common zones (optional)";
+    preset.appendChild(placeholder);
+
+    locations.forEach((location) => {
+      const option = document.createElement("option");
+      option.value = location;
+      option.textContent = location;
+      preset.appendChild(option);
+    });
+
+    const other = document.createElement("option");
+    other.value = "Other";
+    other.textContent = "Other";
+    preset.appendChild(other);
+
+    if (Array.from(preset.options).some((opt) => opt.value === previous)) {
+      preset.value = previous;
+    }
+  };
+
+  zone?.addEventListener("change", updatePresetOptions);
+  updatePresetOptions();
+
+  const query = new URLSearchParams(window.location.search);
+  const zoneFromQuery = query.get("zone");
+  const presetFromQuery = query.get("locationPreset");
+
+  if (zone && zoneFromQuery && ["San Gabriel", "San Bernardino", "San Jacinto"].includes(zoneFromQuery)) {
+    zone.value = zoneFromQuery;
+    updatePresetOptions();
+  }
+
+  if (preset && presetFromQuery) {
+    const presetExists = Array.from(preset.options).some((option) => option.value === presetFromQuery);
+    if (presetExists) {
+      preset.value = presetFromQuery;
+    }
+  }
+
+  const form = document.getElementById("observation-form");
+  const submit = document.getElementById("observation-submit");
+  const clearDraft = document.getElementById("clear-draft");
+  const draftStatus = document.getElementById("draft-status");
+  const renderedAt = document.getElementById("observation-rendered-at");
+  const narrativeInput = document.getElementById("observation-narrative");
+  const narrativeCount = document.getElementById("observation-narrative-count");
+  const draftKey = "socalsnow-observation-draft-v1";
+
+  if (renderedAt) {
+    renderedAt.value = String(Date.now());
+  }
+
+  const saveDraft = () => {
+    if (!form) return;
+
+    const data = {};
+    const fields = form.querySelectorAll("input[name], select[name], textarea[name]");
+    fields.forEach((field) => {
+      const name = field.getAttribute("name") || "";
+      const type = field.getAttribute("type") || "";
+      if (!name || type === "file") return;
+      data[name] = field.value;
+    });
+
+    localStorage.setItem(draftKey, JSON.stringify(data));
+    if (draftStatus) draftStatus.textContent = "Draft saved";
+  };
+
+  const restoreDraft = () => {
+    if (!form) return;
+    if (form.getAttribute("data-submitted") === "1") {
+      localStorage.removeItem(draftKey);
+      if (draftStatus) draftStatus.textContent = "Submission complete. Draft cleared.";
+      return;
+    }
+
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return;
+
+    try {
+      const data = JSON.parse(raw);
+      const fields = form.querySelectorAll("input[name], select[name], textarea[name]");
+      fields.forEach((field) => {
+        const name = field.getAttribute("name") || "";
+        const type = field.getAttribute("type") || "";
+        if (!name || type === "file") return;
+        if (typeof data[name] === "string") {
+          field.value = data[name];
+        }
+      });
+
+      updatePresetOptions();
+      if (draftStatus) draftStatus.textContent = "Draft restored";
+    } catch {
+    }
+  };
+
+  form?.addEventListener("input", saveDraft);
+
+  const updateNarrativeCount = () => {
+    if (!narrativeInput || !narrativeCount) return;
+    narrativeCount.textContent = `${narrativeInput.value.length} / 5000`;
+  };
+
+  narrativeInput?.addEventListener("input", updateNarrativeCount);
+
+  clearDraft?.addEventListener("click", () => {
+    localStorage.removeItem(draftKey);
+    if (!form) return;
+    form.reset();
+    updatePresetOptions();
+    if (draftStatus) draftStatus.textContent = "Draft cleared";
+  });
+
+  restoreDraft();
+  updateNarrativeCount();
+
+  form?.addEventListener("submit", () => {
+    if (!submit) return;
+    submit.setAttribute("disabled", "true");
+    submit.textContent = "Submitting...";
+  });
+</script>

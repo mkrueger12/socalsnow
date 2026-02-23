@@ -1,0 +1,63 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const pending: CollectionEntry<"observations">[] = (await getCollection("observations"))
+  .filter((observation: CollectionEntry<"observations">) => observation.data.status === "pending")
+  .sort(
+    (a: CollectionEntry<"observations">, b: CollectionEntry<"observations">) =>
+      b.data.date.valueOf() - a.data.date.valueOf()
+  );
+
+const pendingByRange = {
+  "San Gabriel": pending.filter((item) => item.data.mountainRange === "San Gabriel").length,
+  "San Bernardino": pending.filter((item) => item.data.mountainRange === "San Bernardino").length,
+  "San Jacinto": pending.filter((item) => item.data.mountainRange === "San Jacinto").length
+};
+---
+
+<BaseLayout
+  title="Moderation Queue | So Cal Snow"
+  description="Internal moderation queue for pending community observations."
+  robots="noindex,nofollow"
+>
+  <section class="container section" data-pagefind-filter="type:Observation">
+    <h1>Observation Moderation Queue</h1>
+    <p>Pending submissions are staged in content and only become public after `status` changes to `approved`.</p>
+
+    <div class="grid grid-3" style="margin-bottom:1rem;">
+      <article class="card"><h2>San Gabriel</h2><p class="meta">{pendingByRange["San Gabriel"]} pending</p></article>
+      <article class="card"><h2>San Bernardino</h2><p class="meta">{pendingByRange["San Bernardino"]} pending</p></article>
+      <article class="card"><h2>San Jacinto</h2><p class="meta">{pendingByRange["San Jacinto"]} pending</p></article>
+    </div>
+
+    <article class="card" style="margin-bottom:1rem;">
+      <h2>Review checklist</h2>
+      <ol>
+        <li>Confirm location, elevation, aspect, and narrative are complete.</li>
+        <li>Check snowpit and stability values for obvious formatting errors.</li>
+        <li>Set frontmatter `status: approved` when ready to publish.</li>
+      </ol>
+      <p class="meta" style="margin:0;">After approval, the report appears on homepage, observations list, and map.</p>
+    </article>
+
+    {pending.length ? (
+      <div class="grid">
+        {pending.map((observation) => (
+          <article class="card">
+            <p class="meta">{observation.data.date.toDateString()} - {observation.data.mountainRange ?? "Unknown range"}</p>
+            <h2>{observation.data.title}</h2>
+            <p>{observation.data.excerpt}</p>
+            <p><strong>File:</strong> <code>src/content/observations/{observation.id}.md</code></p>
+            <p class="meta">Set frontmatter `status: approved` to publish this report.</p>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <article class="card">
+        <p>No pending observations in queue.</p>
+      </article>
+    )}
+  </section>
+</BaseLayout>

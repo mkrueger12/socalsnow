@@ -1,0 +1,9 @@
+http://socalsnow.org/* https://www.socalsnow.org/:splat 301!
+https://socalsnow.org/* https://www.socalsnow.org/:splat 301!
+
+/weather.html /weather 301
+/observations.html /observations 301
+/map-of-service-area.html /map 301
+/education--events.html /learn/events 301
+/resources.html /learn/resources 301
+/about-us.html /about 301

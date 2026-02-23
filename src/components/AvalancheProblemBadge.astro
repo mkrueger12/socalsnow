@@ -1,0 +1,20 @@
+---
+interface Props {
+  name: string;
+}
+
+const { name } = Astro.props;
+
+const iconByProblem: Record<string, string> = {
+  "Wind Slab": "WS",
+  "Storm Slab": "SS",
+  "Wet Snow": "WT"
+};
+
+const initials = iconByProblem[name] ?? "AV";
+---
+
+<span class="problem-badge" title={name} aria-label={name}>
+  <span class="problem-icon" aria-hidden="true">{initials}</span>
+  <span>{name}</span>
+</span>

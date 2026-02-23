@@ -1,0 +1,150 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const events: CollectionEntry<"events">[] = (await getCollection("events")).sort(
+  (a: CollectionEntry<"events">, b: CollectionEntry<"events">) => a.data.date.valueOf() - b.data.date.valueOf()
+);
+
+const now = new Date();
+const upcomingEvents = events.filter((event) => event.data.date.valueOf() >= now.valueOf());
+const pastEvents = events.filter((event) => event.data.date.valueOf() < now.valueOf()).reverse();
+const eventJsonLd = (upcomingEvents.length ? upcomingEvents : events).map((event) => ({
+  "@context": "https://schema.org",
+  "@type": "Event",
+  name: event.data.title,
+  startDate: event.data.date.toISOString(),
+  eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+  eventStatus: "https://schema.org/EventScheduled",
+  location: {
+    "@type": "Place",
+    name: event.data.location,
+    address: "Southern California"
+  },
+  description: event.data.summary || event.data.excerpt || "Avalanche awareness and education event.",
+  organizer: {
+    "@type": "Organization",
+    name: "So Cal Snow Avalanche Center",
+    url: "https://www.socalsnow.org"
+  },
+  url: event.data.registrationUrl
+}));
+---
+
+<BaseLayout title="Education Events | So Cal Snow">
+  <script type="application/ld+json" set:html={JSON.stringify(eventJsonLd)}></script>
+  <section class="container section" data-pagefind-filter="type:Event">
+    <h1>Education and Events</h1>
+    <p>Find upcoming training nights and browse the archive of past events.</p>
+    <p><a class="button button-secondary" href="/learn/events.ics">Add upcoming events to calendar</a></p>
+
+    <div class="card event-tools" aria-label="Event tools">
+      <label>
+        Search events
+        <input id="event-search" type="search" placeholder="awareness, rescue, intro" />
+      </label>
+      <button id="event-clear" class="button button-secondary" type="button">Clear</button>
+    </div>
+
+    <h2 id="upcoming-heading">Upcoming</h2>
+    <div class="grid" id="upcoming-grid">
+      {(upcomingEvents.length ? upcomingEvents : events).map((event) => (
+        <article class="card event-item" data-text={`${event.data.title} ${event.data.location} ${event.data.summary || event.data.excerpt}`.toLowerCase()}>
+          <p class="meta">{event.data.date.toDateString()} - {event.data.location}</p>
+          <h2>{event.data.title}</h2>
+          <p>{event.data.summary || event.data.excerpt}</p>
+          <a href={event.data.registrationUrl} target="_blank" rel="noreferrer">Register</a>
+        </article>
+      ))}
+    </div>
+
+    {pastEvents.length ? (
+      <>
+        <h2 id="past-heading" style="margin-top:2rem;">Past Events Archive</h2>
+        <div class="grid" id="past-grid">
+          {pastEvents.map((event) => (
+            <article class="card event-item" data-text={`${event.data.title} ${event.data.location} ${event.data.summary || event.data.excerpt}`.toLowerCase()}>
+              <p class="meta">{event.data.date.toDateString()} - {event.data.location}</p>
+              <h3>{event.data.title}</h3>
+              <p>{event.data.summary || event.data.excerpt}</p>
+            </article>
+          ))}
+        </div>
+      </>
+    ) : null}
+
+    <article id="event-empty" class="card" hidden style="margin-top:1rem;">
+      <h2>No matching events</h2>
+      <p>Try broader keywords or clear search.</p>
+    </article>
+  </section>
+
+  <script is:inline>
+    const search = document.getElementById("event-search");
+    const clear = document.getElementById("event-clear");
+    const items = Array.from(document.querySelectorAll(".event-item"));
+    const empty = document.getElementById("event-empty");
+    const upcomingHeading = document.getElementById("upcoming-heading");
+    const upcomingGrid = document.getElementById("upcoming-grid");
+    const pastHeading = document.getElementById("past-heading");
+    const pastGrid = document.getElementById("past-grid");
+
+    const render = () => {
+      const query = (search?.value || "").trim().toLowerCase();
+      let visible = 0;
+
+      items.forEach((item) => {
+        const text = item.getAttribute("data-text") || "";
+        const show = !query || text.includes(query);
+        item.style.display = show ? "block" : "none";
+        if (show) visible += 1;
+      });
+
+      if (upcomingGrid && upcomingHeading) {
+        const hasUpcoming = Array.from(upcomingGrid.querySelectorAll(".event-item")).some((item) => item.style.display !== "none");
+        upcomingHeading.style.display = hasUpcoming ? "block" : "none";
+        upcomingGrid.style.display = hasUpcoming ? "grid" : "none";
+      }
+
+      if (pastGrid && pastHeading) {
+        const hasPast = Array.from(pastGrid.querySelectorAll(".event-item")).some((item) => item.style.display !== "none");
+        pastHeading.style.display = hasPast ? "block" : "none";
+        pastGrid.style.display = hasPast ? "grid" : "none";
+      }
+
+      if (empty) {
+        empty.hidden = visible > 0;
+      }
+    };
+
+    search?.addEventListener("input", render);
+    clear?.addEventListener("click", () => {
+      if (search) search.value = "";
+      render();
+    });
+    render();
+  </script>
+</BaseLayout>
+
+<style>
+  .event-tools {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    align-items: end;
+  }
+  #event-search {
+    width: 100%;
+    border: 1px solid #bdd0e4;
+    border-radius: 8px;
+    margin-top: 0.2rem;
+    padding: 0.55rem;
+    font: inherit;
+  }
+  @media (min-width: 800px) {
+    .event-tools {
+      grid-template-columns: minmax(220px, 1fr) max-content;
+    }
+  }
+</style>

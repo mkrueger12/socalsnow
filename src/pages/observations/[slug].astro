@@ -1,0 +1,236 @@
+---
+import { getCollection, getEntry } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+export async function getStaticPaths() {
+  const observations: CollectionEntry<"observations">[] = (await getCollection("observations")).filter(
+    (observation: CollectionEntry<"observations">) => observation.data.status === "approved"
+  );
+  return observations.map((observation: CollectionEntry<"observations">) => ({ params: { slug: observation.slug } }));
+}
+
+const observation = await getEntry("observations", Astro.params.slug!);
+
+if (!observation || observation.data.status !== "approved") {
+  return Astro.redirect("/observations");
+}
+
+const { Content } = await observation.render();
+const allObservations: CollectionEntry<"observations">[] = (await getCollection("observations"))
+  .filter((item: CollectionEntry<"observations">) => item.data.status === "approved")
+  .sort(
+    (a: CollectionEntry<"observations">, b: CollectionEntry<"observations">) =>
+      b.data.date.valueOf() - a.data.date.valueOf()
+  );
+
+const currentIndex = allObservations.findIndex((item: CollectionEntry<"observations">) => item.slug === observation.slug);
+const newerObservation = currentIndex > 0 ? allObservations[currentIndex - 1] : null;
+const olderObservation =
+  currentIndex >= 0 && currentIndex < allObservations.length - 1 ? allObservations[currentIndex + 1] : null;
+
+const relatedObservations: CollectionEntry<"observations">[] = (await getCollection("observations"))
+  .filter(
+    (item: CollectionEntry<"observations">) =>
+      item.data.status === "approved" &&
+      item.slug !== observation.slug &&
+      (item.data.mountainRange ?? "") === (observation.data.mountainRange ?? "")
+  )
+  .sort(
+    (a: CollectionEntry<"observations">, b: CollectionEntry<"observations">) =>
+      b.data.date.valueOf() - a.data.date.valueOf()
+  )
+  .slice(0, 2);
+
+const observationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: observation.data.title,
+  datePublished: observation.data.date.toISOString(),
+  author: {
+    "@type": "Person",
+    name: observation.data.author
+  },
+  description: observation.data.excerpt,
+  about: observation.data.mountainRange ?? "Southern California backcountry conditions",
+  url: new URL(`/observations/${observation.slug}`, Astro.site ?? "https://www.socalsnow.org").toString()
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: new URL("/", Astro.site ?? "https://www.socalsnow.org").toString()
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Observations",
+      item: new URL("/observations", Astro.site ?? "https://www.socalsnow.org").toString()
+    },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: observation.data.title,
+      item: new URL(`/observations/${observation.slug}`, Astro.site ?? "https://www.socalsnow.org").toString()
+    }
+  ]
+};
+---
+
+<BaseLayout
+  title={`${observation.data.title} | Observation`}
+  description={observation.data.excerpt}
+  ogType="article"
+  publishedTime={observation.data.date.toISOString()}
+>
+  <script type="application/ld+json" set:html={JSON.stringify(observationJsonLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbJsonLd)}></script>
+  <section class="container section prose" data-pagefind-filter="type:Observation">
+    <nav class="meta" aria-label="Breadcrumb" style="margin-bottom:0.5rem;">
+      <a href="/">Home</a> / <a href="/observations">Observations</a>
+    </nav>
+    <p class="meta">
+      {observation.data.location} - {observation.data.date.toDateString()} - {observation.data.author}
+    </p>
+    <h1>{observation.data.title}</h1>
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0 0 1rem;">
+      <button id="share-observation" class="button button-secondary" type="button">Share report</button>
+      <a
+        class="button button-secondary"
+        href={`/observations?range=${encodeURIComponent(observation.data.mountainRange ?? "")}`}
+      >
+        More {observation.data.mountainRange ?? "zone"} reports
+      </a>
+      <a
+        class="button button-secondary"
+        href={`/map?range=${encodeURIComponent(observation.data.mountainRange ?? "")}`}
+      >
+        View this zone on map
+      </a>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Location Metadata</h3>
+        <p><strong>Range:</strong> {observation.data.mountainRange || "Unknown range"}</p>
+        <p><strong>Elevation:</strong> {observation.data.elevationFt || observation.data.elevation || 0} ft</p>
+        <p><strong>Aspect:</strong> {observation.data.aspect}</p>
+        {typeof observation.data.latitude === "number" && typeof observation.data.longitude === "number" ? (
+          <>
+            <p><strong>Coordinates:</strong> {observation.data.latitude.toFixed(4)}, {observation.data.longitude.toFixed(4)}</p>
+            <p>
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${observation.data.latitude}&mlon=${observation.data.longitude}#map=12/${observation.data.latitude}/${observation.data.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open location in map
+              </a>
+            </p>
+          </>
+        ) : null}
+      </div>
+      <div class="card">
+        <h3>Snowpit + Stability</h3>
+        {observation.data.snowpit ? (
+          <>
+            <p><strong>Snow depth:</strong> {observation.data.snowpit.depthCm} cm</p>
+            <p><strong>New snow:</strong> {observation.data.snowpit.newSnowCm} cm</p>
+            <p>
+              <strong>{observation.data.snowpit.test}:</strong> {observation.data.snowpit.result}
+            </p>
+          </>
+        ) : (
+          <p>No snowpit data supplied.</p>
+        )}
+      </div>
+    </div>
+    <h2>Field Narrative</h2>
+    <p>{observation.data.narrative || observation.data.excerpt}</p>
+    {observation.data.photos?.length ? (
+      <section class="grid grid-2" aria-label="Observation photos">
+        {(observation.data.photos as string[]).map((photo) => (
+          <img src={photo} alt={`Field photo from ${observation.data.location}`} loading="lazy" />
+        ))}
+      </section>
+    ) : null}
+    <Content />
+
+    {relatedObservations.length ? (
+      <section style="margin-top:1.5rem;">
+        <h2>Related Reports in {observation.data.mountainRange}</h2>
+        <div class="grid grid-2">
+          {relatedObservations.map((item: CollectionEntry<"observations">) => (
+            <article class="card">
+              <p class="meta">{item.data.date.toDateString()} - {item.data.location}</p>
+              <h3><a href={`/observations/${item.slug}`}>{item.data.title}</a></h3>
+              <p>{item.data.excerpt}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    ) : null}
+
+    <nav class="observation-nav" aria-label="Observation navigation">
+      {newerObservation ? (
+        <a class="button button-secondary" href={`/observations/${newerObservation.slug}`}>Newer Report</a>
+      ) : (
+        <span></span>
+      )}
+      {olderObservation ? (
+        <a class="button button-secondary" href={`/observations/${olderObservation.slug}`}>Older Report</a>
+      ) : null}
+    </nav>
+  </section>
+</BaseLayout>
+
+<script is:inline>
+  const shareButton = document.getElementById("share-observation");
+
+  shareButton?.addEventListener("click", async () => {
+    const url = window.location.href;
+    const title = document.title;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch {
+      }
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        shareButton.textContent = "Link copied";
+        window.setTimeout(() => {
+          shareButton.textContent = "Share report";
+        }, 1200);
+        return;
+      }
+    } catch {
+    }
+
+    window.prompt("Copy this link", url);
+  });
+</script>
+
+<style>
+  .prose {
+    max-width: 860px;
+  }
+  .meta {
+    margin: 0;
+    color: var(--slate-700);
+  }
+  .observation-nav {
+    margin-top: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+</style>

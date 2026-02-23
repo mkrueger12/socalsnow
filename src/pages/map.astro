@@ -1,0 +1,308 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const observations: CollectionEntry<"observations">[] = (await getCollection("observations")).filter(
+  (observation: CollectionEntry<"observations">) => observation.data.status === "approved"
+);
+
+const rangeZones = [
+  {
+    name: "San Gabriel",
+    path: [
+      [34.42, -118.09],
+      [34.27, -117.61],
+      [34.12, -117.72],
+      [34.18, -118.16]
+    ]
+  },
+  {
+    name: "San Bernardino",
+    path: [
+      [34.33, -117.1],
+      [34.19, -116.73],
+      [34.02, -116.84],
+      [34.12, -117.23]
+    ]
+  },
+  {
+    name: "San Jacinto",
+    path: [
+      [33.9, -116.83],
+      [33.79, -116.62],
+      [33.66, -116.74],
+      [33.74, -116.94]
+    ]
+  }
+];
+
+const observationPins = observations.map((observation) => ({
+  slug: observation.slug,
+  title: observation.data.title,
+  excerpt: observation.data.excerpt,
+  date: observation.data.date.toISOString().slice(0, 10),
+  range: observation.data.mountainRange ?? "Unknown range",
+  point:
+    typeof observation.data.latitude === "number" && typeof observation.data.longitude === "number"
+      ? [observation.data.latitude, observation.data.longitude]
+      : [34.2, -117.7]
+}));
+
+const rangeStats = Object.fromEntries(
+  ["San Gabriel", "San Bernardino", "San Jacinto"].map((range) => {
+    const entries = observations
+      .filter((observation) => (observation.data.mountainRange ?? "Unknown range") === range)
+      .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+    return [
+      range,
+      {
+        count: entries.length,
+        latestDate: entries[0]?.data.date?.toDateString() ?? "No recent reports"
+      }
+    ];
+  })
+);
+
+const selectedRange = Astro.url.searchParams.get("range");
+---
+
+<BaseLayout
+  title="Service Area Map | So Cal Snow"
+  description="Interactive map of SCSAC service zones with recent observation pins across San Gabriel, San Bernardino, and San Jacinto ranges."
+>
+  <section class="container section" data-pagefind-filter="type:Map">
+    <h1>Service Area Map</h1>
+    <p>Zone polygons and recent observation pins for quick regional context.</p>
+    <p class="meta">Tip: open with <code>?range=San%20Gabriel</code>, <code>?range=San%20Bernardino</code>, or <code>?range=San%20Jacinto</code> to focus a zone.</p>
+    {selectedRange ? (
+      <article class="card" style="margin-bottom:0.85rem; border-left:4px solid #0284c7;">
+        <p style="margin:0;">
+          Viewing focused zone: <strong>{selectedRange}</strong>. <a href="/map">Show all zones</a>
+        </p>
+      </article>
+    ) : null}
+    <div class="range-focus-row" aria-label="Map range focus shortcuts">
+      <a class="pill" href="/map?range=San%20Gabriel">Focus San Gabriel</a>
+      <a class="pill" href="/map?range=San%20Bernardino">Focus San Bernardino</a>
+      <a class="pill" href="/map?range=San%20Jacinto">Focus San Jacinto</a>
+      <a class="pill" href="/map">Show all zones</a>
+    </div>
+
+    <div class="card" style="margin-bottom:0.85rem;">
+      <p class="meta" style="margin:0 0 0.4rem;">Map legend</p>
+      <div class="legend-row">
+        <span class="legend-item"><span class="legend-dot" style="background:#0284c7;"></span> San Gabriel</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> San Bernardino</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ea580c;"></span> San Jacinto</span>
+      </div>
+    </div>
+
+    <div class="card map-shell" style="padding:0;overflow:hidden;">
+      <div id="map-loading" class="map-loading" aria-live="polite">
+        <div class="map-loading-card" aria-hidden="true">
+          <div class="skeleton skeleton-title"></div>
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+        </div>
+        <p class="map-loading-text">Loading map and observation pins...</p>
+      </div>
+      <div id="service-area-map" style="height: 460px;"></div>
+    </div>
+    <noscript>
+      <article class="card" style="margin-top:0.75rem;">
+        <p>
+          The interactive map requires JavaScript. You can still browse reports by zone on
+          <a href="/observations">the observations page</a>.
+        </p>
+      </article>
+    </noscript>
+
+    <div class="grid grid-3" style="margin-top:1rem;">
+      <article class="card">
+        <h2>San Gabriel</h2>
+        <p>Angeles Crest, Mt. Baldy, Baden-Powell area.</p>
+        <p class="meta">{rangeStats["San Gabriel"].count} reports · latest {rangeStats["San Gabriel"].latestDate}</p>
+        <div class="zone-links">
+          <a href="/observations?range=San%20Gabriel">View observations</a>
+          <a href="/weather?range=San%20Gabriel">View weather</a>
+          <a href="/observations/submit?zone=San%20Gabriel">Submit report</a>
+        </div>
+      </article>
+      <article class="card">
+        <h2>San Bernardino</h2>
+        <p>Big Bear ridgelines, Angelus Oaks, San Gorgonio approaches.</p>
+        <p class="meta">{rangeStats["San Bernardino"].count} reports · latest {rangeStats["San Bernardino"].latestDate}</p>
+        <div class="zone-links">
+          <a href="/observations?range=San%20Bernardino">View observations</a>
+          <a href="/weather?range=San%20Bernardino">View weather</a>
+          <a href="/observations/submit?zone=San%20Bernardino">Submit report</a>
+        </div>
+      </article>
+      <article class="card">
+        <h2>San Jacinto</h2>
+        <p>Round Valley, upper tram access terrain, summit zones.</p>
+        <p class="meta">{rangeStats["San Jacinto"].count} reports · latest {rangeStats["San Jacinto"].latestDate}</p>
+        <div class="zone-links">
+          <a href="/observations?range=San%20Jacinto">View observations</a>
+          <a href="/weather?range=San%20Jacinto">View weather</a>
+          <a href="/observations/submit?zone=San%20Jacinto">Submit report</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script is:inline define:vars={{ rangeZones, observationPins }}>
+    const loading = document.getElementById("map-loading");
+    const map = L.map("service-area-map").setView([34.08, -117.45], 8);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const zoneColors = {
+      "San Gabriel": "#0284c7",
+      "San Bernardino": "#16a34a",
+      "San Jacinto": "#ea580c"
+    };
+
+    const selectedRange = new URLSearchParams(window.location.search).get("range");
+    const zoneLayers = [];
+
+    for (const zone of rangeZones) {
+      const layer = L.polygon(zone.path, {
+        color: zoneColors[zone.name] || "#1d4ed8",
+        fillOpacity: selectedRange && selectedRange !== zone.name ? 0.08 : 0.2,
+        opacity: selectedRange && selectedRange !== zone.name ? 0.45 : 1,
+        weight: 2
+      })
+        .addTo(map)
+        .bindPopup(`<strong>${zone.name}</strong><br /><a href="/observations?range=${encodeURIComponent(zone.name)}">Filter observations</a>`);
+
+      zoneLayers.push({ zone, layer });
+    }
+
+    for (const pin of observationPins) {
+      if (selectedRange && pin.range !== selectedRange) {
+        continue;
+      }
+
+      L.circleMarker(pin.point, {
+        radius: 6,
+        color: zoneColors[pin.range] || "#334155",
+        fillOpacity: 0.95
+      })
+        .addTo(map)
+        .bindPopup(`<strong>${pin.title}</strong><br />${pin.range} · ${pin.date}<br />${pin.excerpt}<br /><a href="/observations/${pin.slug}">Open observation</a>`);
+    }
+
+    if (selectedRange) {
+      const target = zoneLayers.find((item) => item.zone.name === selectedRange);
+      if (target) {
+        map.fitBounds(target.layer.getBounds(), { padding: [20, 20] });
+      }
+    }
+
+    if (loading) {
+      loading.setAttribute("hidden", "true");
+    }
+  </script>
+</BaseLayout>
+
+<style>
+  .map-shell {
+    position: relative;
+  }
+  .map-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #f6fbff 0%, #e7f2fb 100%);
+    color: #334155;
+    font-weight: 600;
+    z-index: 1;
+  }
+  .map-loading-card {
+    width: min(320px, calc(100% - 2rem));
+    background: #fff;
+    border: 1px solid #d7e6f3;
+    border-radius: 10px;
+    padding: 0.8rem;
+    margin-bottom: 0.6rem;
+  }
+  .skeleton {
+    border-radius: 6px;
+    background: linear-gradient(90deg, #e2edf7 0%, #f3f8fd 50%, #e2edf7 100%);
+    background-size: 200% 100%;
+    animation: map-skeleton 1.2s ease-in-out infinite;
+  }
+  .skeleton-title {
+    height: 0.9rem;
+    width: 45%;
+    margin-bottom: 0.55rem;
+  }
+  .skeleton-row {
+    height: 0.72rem;
+    width: 100%;
+    margin-bottom: 0.4rem;
+  }
+  .skeleton-row:last-child {
+    width: 76%;
+    margin-bottom: 0;
+  }
+  .map-loading-text {
+    margin: 0;
+    font-weight: 600;
+  }
+  .range-focus-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+  }
+  .legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+  }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .legend-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 999px;
+  }
+  .zone-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  @keyframes map-skeleton {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+</style>

@@ -1,0 +1,29 @@
+---
+import { sponsors } from "../data/sponsors";
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <p class="footer-mission">
+      Volunteer-powered avalanche awareness for Southern California backcountry travelers.
+    </p>
+    <p class="footer-label">Supported by</p>
+    <div class="sponsor-strip">
+      {sponsors.map((sponsor) => (
+        <a href={sponsor.url} target="_blank" rel="noreferrer">{sponsor.name}</a>
+      ))}
+    </div>
+    <div class="footer-social">
+      <a href="https://www.instagram.com/socalsnowavalanchecenter/" target="_blank" rel="noreferrer">Instagram</a>
+      <a href="/rss.xml">RSS</a>
+      <a href="/observations/submit">Submit Report</a>
+      <a href="/donate">Donate</a>
+    </div>
+    <div class="footer-meta">
+      <a href="/contact">Contact</a>
+      <a href="/search">Search</a>
+      <a href="/learn/resources">Resources</a>
+      <span>© {new Date().getFullYear()} So Cal Snow Avalanche Center</span>
+    </div>
+  </div>
+</footer>

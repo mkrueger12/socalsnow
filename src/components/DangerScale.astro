@@ -1,0 +1,23 @@
+---
+import { dangerScale } from "../data/resources";
+
+interface Props {
+  active?: string[];
+}
+
+const { active = [] } = Astro.props;
+---
+
+<section class="danger-scale">
+  {dangerScale.map((item) => (
+    <article class:list={[
+      "danger-item",
+      active.includes(item.name) && "is-active",
+      active.includes(item.name) && (item.name === "High" || item.name === "Extreme") && "is-alert"
+    ]}>
+      <div class="danger-chip" style={`background:${item.color}`}></div>
+      <p><strong>{item.level}. {item.name}</strong></p>
+      <p>{item.advice}</p>
+    </article>
+  ))}
+</section>

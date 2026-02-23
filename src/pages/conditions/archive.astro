@@ -1,0 +1,127 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import AvalancheProblemBadge from "../../components/AvalancheProblemBadge.astro";
+
+const summaries: CollectionEntry<"summaries">[] = (await getCollection("summaries")).sort(
+  (a: CollectionEntry<"summaries">, b: CollectionEntry<"summaries">) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+const groupedByYear = summaries.reduce(
+  (acc: Record<string, CollectionEntry<"summaries">[]>, summary: CollectionEntry<"summaries">) => {
+    const year = String(summary.data.date.getFullYear());
+    if (!acc[year]) {
+      acc[year] = [];
+    }
+    acc[year].push(summary);
+    return acc;
+  },
+  {}
+);
+
+const years = Object.keys(groupedByYear).sort((a, b) => Number(b) - Number(a));
+---
+
+<BaseLayout title="Snowpack Summary Archive | So Cal Snow">
+  <section class="container section" data-pagefind-filter="type:Summary">
+    <h1>Snowpack Summary Archive</h1>
+    <p>Browse historical summaries by year.</p>
+    <div class="card" style="margin-bottom:1rem;">
+      <label>
+        Search summaries
+        <input id="summary-search" type="search" placeholder="title, problem, or keyword" />
+      </label>
+      <p id="summary-count" class="meta" style="margin:0.5rem 0 0;" aria-live="polite"></p>
+    </div>
+    <div class="year-jump">
+      {years.map((year) => (
+        <a class="pill" href={`#year-${year}`}>{year}</a>
+      ))}
+      <a class="pill" href="/rss.xml">RSS feed</a>
+    </div>
+
+    {years.map((year) => (
+      <section id={`year-${year}`} class="year-group" style="margin-top:1.5rem;">
+        <h2>{year}</h2>
+        <div class="grid">
+          {groupedByYear[year].map((summary: CollectionEntry<"summaries">) => (
+            <article
+              class="card summary-item"
+              data-text={`${summary.data.title} ${summary.data.excerpt}`.toLowerCase()}
+              data-year={year}
+            >
+              <p class="meta">{summary.data.date.toDateString()}</p>
+              <h3><a href={`/conditions/${summary.slug}`}>{summary.data.title}</a></h3>
+              {summary.data.problems?.length ? (
+                <div class="pill-row" style="margin:0 0 0.45rem;">
+                  {summary.data.problems.map((problem: string) => (
+                    <AvalancheProblemBadge name={problem} />
+                  ))}
+                </div>
+              ) : null}
+              <p>{summary.data.excerpt}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    ))}
+
+    <article id="summary-empty" class="card" hidden style="margin-top:1rem;">
+      <h2>No matching summaries</h2>
+      <p>Try broader keywords or clear your search input.</p>
+    </article>
+  </section>
+
+  <script is:inline>
+    const search = document.getElementById("summary-search");
+    const count = document.getElementById("summary-count");
+    const items = Array.from(document.querySelectorAll(".summary-item"));
+    const yearGroups = Array.from(document.querySelectorAll(".year-group"));
+    const empty = document.getElementById("summary-empty");
+
+    const render = () => {
+      const query = (search?.value || "").trim().toLowerCase();
+      let visible = 0;
+
+      items.forEach((item) => {
+        const text = item.getAttribute("data-text") || "";
+        const show = !query || text.includes(query);
+        item.style.display = show ? "block" : "none";
+        if (show) visible += 1;
+      });
+
+      yearGroups.forEach((group) => {
+        const hasVisible = Array.from(group.querySelectorAll(".summary-item")).some((item) => item.style.display !== "none");
+        group.style.display = hasVisible ? "block" : "none";
+      });
+
+      if (count) {
+        count.textContent = `${visible} summar${visible === 1 ? "y" : "ies"} shown`;
+      }
+
+      if (empty) {
+        empty.hidden = visible > 0;
+      }
+    };
+
+    search?.addEventListener("input", render);
+    render();
+  </script>
+</BaseLayout>
+
+<style>
+  .year-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  #summary-search {
+    width: 100%;
+    border: 1px solid #bdd0e4;
+    border-radius: 8px;
+    margin-top: 0.2rem;
+    padding: 0.55rem;
+    font: inherit;
+  }
+</style>

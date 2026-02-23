@@ -1,0 +1,129 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { generalForecast, weatherByRange } from "../data/weatherStations";
+
+const selectedRange = Astro.url.searchParams.get("range") || "";
+---
+
+<BaseLayout
+  title="Weather | So Cal Snow"
+  description="Mountain weather by range with station links, forecasts, and quick observation cross-links for Southern California backcountry travel."
+>
+  <section class="container section" data-pagefind-filter="type:Weather">
+    <h1>Mountain Weather</h1>
+    <p>Weather links and quick station snapshots by range.</p>
+    <div class="range-jump" aria-label="Weather range jump links">
+      {Object.keys(weatherByRange).map((range) => (
+        <a
+          class:list={["pill", selectedRange === range && "is-active-range"]}
+          href={`?range=${encodeURIComponent(range)}#${range.toLowerCase().replace(/\s+/g, "-")}`}
+        >
+          {range}
+        </a>
+      ))}
+      <a class:list={["pill", !selectedRange && "is-active-range"]} href="/weather">All ranges</a>
+    </div>
+    <div class="weather-actions" aria-label="Weather accordion controls">
+      <button id="expand-weather" class="button button-secondary" type="button">Expand all</button>
+      <button id="collapse-weather" class="button button-secondary" type="button">Collapse all</button>
+    </div>
+    <article class="card" style="margin-bottom:1rem;">
+      <h2 style="margin-bottom:0.5rem;">General Forecast</h2>
+      <p style="margin:0;">{generalForecast}</p>
+    </article>
+
+    <div class="grid">
+      {Object.entries(weatherByRange).map(([range, rangeWeather]) => (
+        <details
+          id={range.toLowerCase().replace(/\s+/g, "-")}
+          class="card weather-range"
+          data-range={range}
+          open={selectedRange ? selectedRange === range : true}
+        >
+          <summary><strong>{range}</strong></summary>
+          <p class="meta" style="margin:0.6rem 0 0;">
+            Pair weather trends with recent field reports in this zone.
+            <a href={`/observations?range=${encodeURIComponent(range)}`}> View observations</a>
+            <span> · </span>
+            <a href={`/observations/submit?zone=${encodeURIComponent(range)}`}>Submit observation</a>
+          </p>
+          <div class="station-list">
+            {rangeWeather.stations.map((station) => (
+              <p class="station-row">
+                <strong>{station.name}</strong> - {station.tempF}F, wind {station.windMph} mph, precip {station.precipIn}".
+                <a href={station.url} target="_blank" rel="noreferrer"> {station.source} -></a>
+              </p>
+            ))}
+          </div>
+          <ul class="quick-links">
+            {rangeWeather.links.map((link) => (
+              <li><a href={link.url} target="_blank" rel="noreferrer">{link.label}</a></li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .station-list {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.7rem;
+  }
+  .station-row {
+    margin: 0;
+    padding: 0.55rem 0.5rem;
+    border-bottom: 1px solid #d5e1ed;
+    border-radius: 6px;
+  }
+  .station-row:nth-child(odd) {
+    background: #f8fbff;
+  }
+  .quick-links {
+    margin: 0.8rem 0 0;
+    padding-left: 1.1rem;
+  }
+  .weather-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+  }
+  .range-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .range-jump .pill.is-active-range {
+    background: var(--sky-600);
+    color: #fff;
+  }
+</style>
+
+<script is:inline>
+  const ranges = Array.from(document.querySelectorAll(".weather-range"));
+  const expand = document.getElementById("expand-weather");
+  const collapse = document.getElementById("collapse-weather");
+
+  expand?.addEventListener("click", () => {
+    ranges.forEach((item) => {
+      item.open = true;
+    });
+  });
+
+  collapse?.addEventListener("click", () => {
+    ranges.forEach((item) => {
+      item.open = false;
+    });
+  });
+
+  const targetRange = new URLSearchParams(window.location.search).get("range");
+  if (targetRange) {
+    ranges.forEach((item) => {
+      item.open = item.getAttribute("data-range") === targetRange;
+    });
+  }
+</script>

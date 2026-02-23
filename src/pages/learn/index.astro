@@ -1,0 +1,51 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { resources } from "../../data/resources";
+
+const events: CollectionEntry<"events">[] = (await getCollection("events")).sort(
+  (a: CollectionEntry<"events">, b: CollectionEntry<"events">) => a.data.date.valueOf() - b.data.date.valueOf()
+);
+const upcomingEvents = events.filter((event) => event.data.date.valueOf() >= Date.now()).slice(0, 2);
+---
+
+<BaseLayout
+  title="Learn | So Cal Snow"
+  description="Avalanche education hub with danger scale guidance, upcoming events, and trusted backcountry resources."
+>
+  <section class="container section" data-pagefind-filter="type:Learn">
+    <h1>Learn</h1>
+    <div class="grid grid-3">
+      <article class="card">
+        <h2>Danger Scale</h2>
+        <p>Understand each North American danger level and travel advice.</p>
+        <a href="/learn/danger-scale">Open danger scale</a>
+      </article>
+      <article class="card">
+        <h2>Events</h2>
+        <p>Upcoming education sessions, rescue refreshers, and public nights.</p>
+        {upcomingEvents.length ? (
+          <ul>
+            {upcomingEvents.map((event) => (
+              <li class="meta">{event.data.date.toDateString()} - {event.data.title}</li>
+            ))}
+          </ul>
+        ) : (
+          <p class="meta">New events will be announced soon.</p>
+        )}
+        <a href="/learn/events">View events</a>
+      </article>
+      <article class="card">
+        <h2>Resources</h2>
+        <p>External education providers, avalanche centers, and planning tools.</p>
+        <ul>
+          {resources.education.slice(0, 2).map((item) => (
+            <li><a href={item.url} target="_blank" rel="noreferrer">{item.label}</a></li>
+          ))}
+        </ul>
+        <a href="/learn/resources">Explore resources</a>
+      </article>
+    </div>
+  </section>
+</BaseLayout>

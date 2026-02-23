@@ -1,0 +1,105 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import AvalancheProblemBadge from "../../components/AvalancheProblemBadge.astro";
+import { avalancheProblemInfo } from "../../data/avalancheProblems";
+
+const summaries: CollectionEntry<"summaries">[] = (await getCollection("summaries")).sort(
+  (a: CollectionEntry<"summaries">, b: CollectionEntry<"summaries">) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+const latest = summaries[0];
+const recentArchive = summaries.slice(1, 4);
+const { Content } = await latest.render();
+const activeProblems = latest.data.problems.map((problem: string) => ({
+  name: problem,
+  detail: avalancheProblemInfo[problem] ?? "Travel conservatively and evaluate local snowpack structure before committing to steep terrain."
+}));
+
+const dangerClassByLevel: Record<string, string> = {
+  Low: "danger-low",
+  Moderate: "danger-moderate",
+  Considerable: "danger-considerable",
+  High: "danger-high",
+  Extreme: "danger-extreme"
+};
+---
+
+<BaseLayout
+  title={`${latest.data.title} | So Cal Snow`}
+  description="Latest Southern California snowpack summary with avalanche problems, danger by range, and travel advice."
+>
+  <section class="container section prose" data-pagefind-filter="type:Summary">
+    <p class="meta">Published {latest.data.date.toDateString()} - {latest.data.author}</p>
+    <h1>{latest.data.title}</h1>
+    {(latest.data.dangerByRange ?? []).length ? (
+      <div class="pill-row" style="margin: 0 0 0.7rem;">
+        {(latest.data.dangerByRange ?? []).map((danger: { range: string; level: string }) => (
+          <a
+            class:list={["pill", "danger-pill", dangerClassByLevel[danger.level] ?? ""]}
+            href={`/observations?range=${encodeURIComponent(danger.range)}`}
+          >
+            {danger.range}: {danger.level}
+          </a>
+        ))}
+      </div>
+    ) : null}
+    <div class="pill-row" style="margin: 0 0 0.9rem;">
+      {latest.data.problems.map((problem: string) => (
+        <AvalancheProblemBadge name={problem} />
+      ))}
+    </div>
+    <div class="grid">
+      {activeProblems.map((problem: { name: string; detail: string }) => (
+        <article class="card">
+          <h3><AvalancheProblemBadge name={problem.name} /></h3>
+          <p>{problem.detail}</p>
+        </article>
+      ))}
+    </div>
+    <div class="card warning">
+      So Cal Snow Avalanche Center provides avalanche awareness information and community reports. This is not an official avalanche forecast.
+    </div>
+
+    <div class="card" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.8rem;margin-bottom:1rem;">
+      <p style="margin:0;">Have eyes on conditions? Help the community with a quick field report.</p>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <a class="button button-secondary" href="/observations">View observations</a>
+        <a class="button button-primary" href="/observations/submit">Submit observation</a>
+      </div>
+    </div>
+
+    <Content />
+
+    {recentArchive.length ? (
+      <section style="margin-top:1.25rem;">
+        <h2>Recent Summaries</h2>
+        <div class="grid">
+          {recentArchive.map((summary: CollectionEntry<"summaries">) => (
+            <article class="card">
+              <p class="meta">{summary.data.date.toDateString()}</p>
+              <h3><a href={`/conditions/${summary.slug}`}>{summary.data.title}</a></h3>
+              <p>{summary.data.excerpt}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    ) : null}
+
+    <a class="button button-secondary" href="/conditions/archive">Browse summary archive</a>
+  </section>
+</BaseLayout>
+
+<style>
+  .meta {
+    margin: 0;
+    color: var(--slate-700);
+  }
+  .prose {
+    max-width: 760px;
+  }
+  .warning {
+    border-left: 4px solid var(--danger-high);
+    margin: 1rem 0;
+  }
+</style>

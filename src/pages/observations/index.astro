@@ -1,0 +1,383 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ObservationCard from "../../components/ObservationCard.astro";
+
+const observations: CollectionEntry<"observations">[] = (await getCollection("observations"))
+  .filter((observation: CollectionEntry<"observations">) => observation.data.status === "approved")
+  .sort(
+    (a: CollectionEntry<"observations">, b: CollectionEntry<"observations">) =>
+      b.data.date.valueOf() - a.data.date.valueOf()
+  );
+
+const rangeCounts = {
+  "San Gabriel": observations.filter((observation) => observation.data.mountainRange === "San Gabriel").length,
+  "San Bernardino": observations.filter((observation) => observation.data.mountainRange === "San Bernardino").length,
+  "San Jacinto": observations.filter((observation) => observation.data.mountainRange === "San Jacinto").length
+};
+---
+
+<BaseLayout
+  title="Observations | So Cal Snow"
+  description="Recent community and staff backcountry observations across San Gabriel, San Bernardino, and San Jacinto ranges."
+>
+  <section class="container section" data-pagefind-filter="type:Observation">
+    <h1>Current Season Observations</h1>
+    <p>Community and staff field reports sorted by most recent.</p>
+    <div class="grid grid-3" style="margin-bottom:1rem;">
+      <article class="card">
+        <h2>San Gabriel</h2>
+        <p class="meta">{rangeCounts["San Gabriel"]} reports</p>
+        <a href="/observations?range=San%20Gabriel">Filter to range</a>
+      </article>
+      <article class="card">
+        <h2>San Bernardino</h2>
+        <p class="meta">{rangeCounts["San Bernardino"]} reports</p>
+        <a href="/observations?range=San%20Bernardino">Filter to range</a>
+      </article>
+      <article class="card">
+        <h2>San Jacinto</h2>
+        <p class="meta">{rangeCounts["San Jacinto"]} reports</p>
+        <a href="/observations?range=San%20Jacinto">Filter to range</a>
+      </article>
+    </div>
+    <div class="filters card" aria-label="Observation filters">
+      <label>
+        Mountain range
+        <select id="range-filter">
+          <option value="all">All ranges</option>
+          <option value="San Gabriel">San Gabriel</option>
+          <option value="San Bernardino">San Bernardino</option>
+          <option value="San Jacinto">San Jacinto</option>
+        </select>
+      </label>
+      <label>
+        Keywords
+        <input id="keyword-filter" type="search" placeholder="location, author, conditions" />
+      </label>
+      <label>
+        Since
+        <input id="since-filter" type="date" />
+      </label>
+      <label>
+        Until
+        <input id="until-filter" type="date" />
+      </label>
+      <label>
+        Sort
+        <select id="sort-filter">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </label>
+      <button id="clear-filters" class="button button-secondary" type="button">Clear</button>
+    </div>
+    <div class="range-pills" aria-label="Quick range filters">
+      <button class="pill range-pill" type="button" data-range="San Gabriel">San Gabriel</button>
+      <button class="pill range-pill" type="button" data-range="San Bernardino">San Bernardino</button>
+      <button class="pill range-pill" type="button" data-range="San Jacinto">San Jacinto</button>
+    </div>
+    <div class="quick-range" aria-label="Quick date ranges">
+      <button class="button button-secondary quick-date" type="button" data-days="7">Last 7 days</button>
+      <button class="button button-secondary quick-date" type="button" data-days="30">Last 30 days</button>
+      <button class="button button-secondary quick-date" type="button" data-days="90">Last 90 days</button>
+      <a class="button button-secondary" href="/map">Open service area map</a>
+      <button id="copy-filters-link" class="button button-secondary" type="button">Copy share link</button>
+    </div>
+    <div id="active-filters" class="active-filters" aria-live="polite"></div>
+    <div class="grid grid-2">
+      {observations.map((observation) => (
+        <div
+          class="observation-item"
+          data-range={observation.data.mountainRange ?? "Unknown range"}
+          data-date={observation.data.date.toISOString().slice(0, 10)}
+          data-timestamp={observation.data.date.valueOf()}
+          data-text={`${observation.data.title} ${observation.data.location} ${observation.data.author} ${observation.data.excerpt}`.toLowerCase()}
+        >
+          <ObservationCard
+            slug={observation.slug}
+            title={observation.data.title}
+            location={observation.data.location}
+            mountainRange={observation.data.mountainRange ?? "Unknown range"}
+            date={observation.data.date}
+            elevationFt={observation.data.elevationFt ?? observation.data.elevation ?? 0}
+            author={observation.data.author}
+            excerpt={observation.data.excerpt}
+            photoUrl={observation.data.photos?.[0]}
+          />
+        </div>
+      ))}
+    </div>
+    <p id="results-count" class="meta" aria-live="polite"></p>
+    <article id="no-results" class="card" hidden>
+      <h2>No matching observations</h2>
+      <p>Try broadening your filters or clearing date and keyword constraints.</p>
+      <button id="no-results-clear" class="button button-secondary" type="button">Clear filters</button>
+    </article>
+    <article class="card submit-cta">
+      <h2>Submit your own observation</h2>
+      <p>Share what you see: snowpack, wind loading, and signs of instability.</p>
+      <a id="submit-report-link" class="button button-primary" href="/observations/submit">Submit report</a>
+    </article>
+  </section>
+
+  <script is:inline>
+    const params = new URLSearchParams(window.location.search);
+    const rangeFilter = document.getElementById("range-filter");
+    const keywordFilter = document.getElementById("keyword-filter");
+    const sinceFilter = document.getElementById("since-filter");
+    const untilFilter = document.getElementById("until-filter");
+    const sortFilter = document.getElementById("sort-filter");
+    const clearFilters = document.getElementById("clear-filters");
+    const quickDateButtons = Array.from(document.querySelectorAll(".quick-date"));
+    const rangePills = Array.from(document.querySelectorAll(".range-pill"));
+    const resultsCount = document.getElementById("results-count");
+    const noResults = document.getElementById("no-results");
+    const noResultsClear = document.getElementById("no-results-clear");
+    const copyFiltersLink = document.getElementById("copy-filters-link");
+    const activeFilters = document.getElementById("active-filters");
+    const submitReportLink = document.getElementById("submit-report-link");
+    const items = Array.from(document.querySelectorAll(".observation-item"));
+
+    if (params.get("range") && rangeFilter) rangeFilter.value = params.get("range");
+    if (params.get("q") && keywordFilter) keywordFilter.value = params.get("q");
+    if (params.get("since") && sinceFilter) sinceFilter.value = params.get("since");
+    if (params.get("until") && untilFilter) untilFilter.value = params.get("until");
+    if (params.get("sort") && sortFilter) sortFilter.value = params.get("sort");
+
+    const render = () => {
+      const range = rangeFilter?.value || "all";
+      const query = (keywordFilter?.value || "").trim().toLowerCase();
+      const since = sinceFilter?.value || "";
+      const until = untilFilter?.value || "";
+      const sort = sortFilter?.value || "newest";
+      let visible = 0;
+
+      for (const item of items) {
+        const itemRange = item.getAttribute("data-range") || "";
+        const itemDate = item.getAttribute("data-date") || "";
+        const itemText = item.getAttribute("data-text") || "";
+        const rangePass = range === "all" || itemRange === range;
+        const queryPass = !query || itemText.includes(query);
+        const sincePass = !since || itemDate >= since;
+        const untilPass = !until || itemDate <= until;
+        const show = rangePass && queryPass && sincePass && untilPass;
+
+        item.style.display = show ? "block" : "none";
+        if (show) visible += 1;
+      }
+
+      if (resultsCount) {
+        resultsCount.textContent = `${visible} observation${visible === 1 ? "" : "s"} shown`;
+      }
+
+      if (noResults) {
+        noResults.hidden = visible > 0;
+      }
+
+      const next = new URLSearchParams();
+      if (range !== "all") next.set("range", range);
+      if (query) next.set("q", query);
+      if (since) next.set("since", since);
+      if (until) next.set("until", until);
+      if (sort !== "newest") next.set("sort", sort);
+      const searchQuery = next.toString();
+      history.replaceState({}, "", searchQuery ? `?${searchQuery}` : window.location.pathname);
+
+      const sorted = [...items].sort((a, b) => {
+        const aValue = Number(a.getAttribute("data-timestamp") || "0");
+        const bValue = Number(b.getAttribute("data-timestamp") || "0");
+        return sort === "oldest" ? aValue - bValue : bValue - aValue;
+      });
+
+      const grid = document.querySelector(".grid.grid-2");
+      if (grid) {
+        sorted.forEach((item) => {
+          grid.appendChild(item);
+        });
+      }
+
+      rangePills.forEach((pill) => {
+        const pillRange = pill.getAttribute("data-range");
+        pill.classList.toggle("is-active", pillRange === range);
+      });
+
+      if (activeFilters) {
+        const chips = [];
+        if (range !== "all") chips.push({ key: "range", label: `Range: ${range}` });
+        if (query) chips.push({ key: "q", label: `Keyword: ${query}` });
+        if (since) chips.push({ key: "since", label: `Since: ${since}` });
+        if (until) chips.push({ key: "until", label: `Until: ${until}` });
+        if (sort !== "newest") chips.push({ key: "sort", label: "Sort: oldest" });
+
+        activeFilters.innerHTML = chips.length
+          ? chips
+              .map(
+                (chip) =>
+                  `<button type="button" class="active-filter-chip" data-filter-key="${chip.key}" aria-label="Remove ${chip.label}">${chip.label} ×</button>`
+              )
+              .join("")
+          : "";
+      }
+
+      if (submitReportLink) {
+        if (range !== "all") {
+          submitReportLink.setAttribute("href", `/observations/submit?zone=${encodeURIComponent(range)}`);
+        } else {
+          submitReportLink.setAttribute("href", "/observations/submit");
+        }
+      }
+    };
+
+    rangeFilter?.addEventListener("change", render);
+    keywordFilter?.addEventListener("input", render);
+    sinceFilter?.addEventListener("change", render);
+    untilFilter?.addEventListener("change", render);
+    sortFilter?.addEventListener("change", render);
+    clearFilters?.addEventListener("click", () => {
+      if (rangeFilter) rangeFilter.value = "all";
+      if (keywordFilter) keywordFilter.value = "";
+      if (sinceFilter) sinceFilter.value = "";
+      if (untilFilter) untilFilter.value = "";
+      if (sortFilter) sortFilter.value = "newest";
+      render();
+    });
+
+    noResultsClear?.addEventListener("click", () => {
+      if (rangeFilter) rangeFilter.value = "all";
+      if (keywordFilter) keywordFilter.value = "";
+      if (sinceFilter) sinceFilter.value = "";
+      if (untilFilter) untilFilter.value = "";
+      if (sortFilter) sortFilter.value = "newest";
+      render();
+    });
+
+    copyFiltersLink?.addEventListener("click", async () => {
+      const url = window.location.href;
+
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          copyFiltersLink.textContent = "Copied";
+          window.setTimeout(() => {
+            copyFiltersLink.textContent = "Copy share link";
+          }, 1200);
+          return;
+        }
+      } catch {
+      }
+
+      window.prompt("Copy this link", url);
+    });
+
+    quickDateButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const days = Number(button.getAttribute("data-days") || "0");
+        if (!days || !sinceFilter) return;
+
+        const today = new Date();
+        const sinceDate = new Date(today);
+        sinceDate.setDate(today.getDate() - days);
+        sinceFilter.value = sinceDate.toISOString().slice(0, 10);
+
+        if (untilFilter && !untilFilter.value) {
+          untilFilter.value = today.toISOString().slice(0, 10);
+        }
+
+        render();
+      });
+    });
+
+    rangePills.forEach((pill) => {
+      pill.addEventListener("click", () => {
+        const selected = pill.getAttribute("data-range") || "all";
+        if (rangeFilter) {
+          rangeFilter.value = rangeFilter.value === selected ? "all" : selected;
+        }
+        render();
+      });
+    });
+
+    activeFilters?.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const key = target.getAttribute("data-filter-key");
+      if (!key) return;
+
+      if (key === "range" && rangeFilter) rangeFilter.value = "all";
+      if (key === "q" && keywordFilter) keywordFilter.value = "";
+      if (key === "since" && sinceFilter) sinceFilter.value = "";
+      if (key === "until" && untilFilter) untilFilter.value = "";
+      if (key === "sort" && sortFilter) sortFilter.value = "newest";
+      render();
+    });
+
+    render();
+  </script>
+</BaseLayout>
+
+<style>
+  .filters {
+    display: grid;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+    align-items: end;
+  }
+  .filters select,
+  .filters input {
+    display: block;
+    margin-top: 0.2rem;
+    border: 1px solid #b8cde1;
+    border-radius: 8px;
+    padding: 0.5rem;
+    font: inherit;
+    min-width: 180px;
+  }
+  .submit-cta {
+    margin-top: 1rem;
+  }
+  .quick-range {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+  }
+  .range-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .range-pill {
+    border: 0;
+    cursor: pointer;
+  }
+  .range-pill.is-active {
+    background: var(--sky-600);
+    color: #fff;
+  }
+  .active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .active-filter-chip {
+    border: 1px solid #c7d9e9;
+    background: #f8fbff;
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+    font: inherit;
+    cursor: pointer;
+  }
+  #results-count {
+    margin: 0.8rem 0 0;
+  }
+  @media (min-width: 800px) {
+    .filters {
+      grid-template-columns: minmax(220px, 1fr) auto auto auto auto max-content;
+    }
+  }
+</style>

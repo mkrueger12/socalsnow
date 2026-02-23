@@ -1,0 +1,78 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { sponsors, supporters } from "../data/sponsors";
+
+const team = (await getCollection("team")) as CollectionEntry<"team">[];
+team.sort((a, b) => (a.data.sortOrder ?? 999) - (b.data.sortOrder ?? 999));
+---
+
+<BaseLayout
+  title="About | So Cal Snow"
+  description="Mission, team, supporters, and partner programs behind the So Cal Snow Avalanche Center."
+>
+  <section class="container section" data-pagefind-filter="type:About">
+    <h1>About So Cal Snow Avalanche Center</h1>
+    <p>
+      We are a volunteer-run nonprofit dedicated to avalanche awareness, observation sharing, and backcountry education for Southern California mountain communities.
+    </p>
+    <div class="pill-row" style="margin-bottom:1rem;">
+      <a class="pill" href="#team">Meet the team</a>
+      <a class="pill" href="#supporters">Our supporters</a>
+      <a class="pill" href="#partner-program">Partner program</a>
+    </div>
+    <h2 id="team">Board and Operations Team</h2>
+    <div class="grid grid-3">
+      {team.map((member) => (
+        <article class="card">
+          {member.data.photo ? (
+            <img src={member.data.photo} alt={member.data.name} loading="lazy" style="aspect-ratio:3/2;object-fit:cover;border-radius:8px;" />
+          ) : (
+            <div style="aspect-ratio:3/2;border-radius:8px;background:#dce8f4;"></div>
+          )}
+          <h3 style="margin-top:0.7rem;">{member.data.name}</h3>
+          <p class="meta">{member.data.title}</p>
+          <p>{member.data.bio ?? member.body}</p>
+        </article>
+      ))}
+    </div>
+
+    <h2 id="supporters" style="margin-top:2rem;">Our Supporters</h2>
+    <p>Partners and supporters help keep avalanche awareness information free and current each season.</p>
+    <div class="grid grid-2">
+      <article class="card">
+        <h3>Sponsors</h3>
+        <ul>
+          {sponsors.map((partner) => (
+            <li><a href={partner.url} target="_blank" rel="noreferrer">{partner.name}</a></li>
+          ))}
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Supporters</h3>
+        <ul>
+          {supporters.map((partner) => (
+            <li><a href={partner.url} target="_blank" rel="noreferrer">{partner.name}</a></li>
+          ))}
+        </ul>
+      </article>
+    </div>
+
+    <article id="partner-program" class="card" style="margin-top:1rem;">
+      <h3>Partner Program</h3>
+      <p>
+        Sierra Mountain Center partners with SCSAC and donates $25 for each booking that uses code <strong>SOCALAVY</strong>.
+      </p>
+      <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
+        <a class="button button-secondary" href="https://sierramtnguides.com/" target="_blank" rel="noreferrer">View partner courses</a>
+        <a
+          class="button button-secondary"
+          href="/contact?subject=Partnership%20%2F%20Sponsorship&message=I%20want%20to%20learn%20more%20about%20partnering%20with%20SCSAC."
+        >
+          Ask about partnerships
+        </a>
+      </div>
+    </article>
+  </section>
+</BaseLayout>

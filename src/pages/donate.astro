@@ -1,0 +1,54 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const paypalUrl = import.meta.env.PUBLIC_PAYPAL_DONATE_URL || "https://www.paypal.com/donate";
+const stripeUrl = import.meta.env.PUBLIC_STRIPE_DONATE_URL || "";
+---
+
+<BaseLayout
+  title="Donate | So Cal Snow"
+  description="Support So Cal Snow Avalanche Center with PayPal or optional Stripe donations to fund field observations and education."
+>
+  <section class="container section" style="max-width:860px;" data-pagefind-filter="type:Donate">
+    <h1>Support SoCal Avalanche Awareness</h1>
+    <p>Your contribution supports field observations, education nights, and rapid publication of snowpack summaries.</p>
+    <div class="grid grid-3" style="margin-bottom:1rem;">
+      <article class="card"><h2>$25</h2><p>Funds one volunteer field observation report.</p></article>
+      <article class="card"><h2>$75</h2><p>Supports rescue and awareness training materials.</p></article>
+      <article class="card"><h2>$250</h2><p>Helps cover seasonal weather and tooling costs.</p></article>
+    </div>
+    <div class="card" style="display:grid;gap:0.7rem;max-width:500px;">
+      {stripeUrl ? (
+        <a class="button button-primary" href={stripeUrl} target="_blank" rel="noreferrer">Donate with Stripe</a>
+      ) : (
+        <a class="button button-primary" href={paypalUrl} target="_blank" rel="noreferrer">Donate with PayPal</a>
+      )}
+      <a class="button button-secondary" href={paypalUrl} target="_blank" rel="noreferrer">Donate with PayPal</a>
+      <a class="button button-secondary" href={paypalUrl} target="_blank" rel="noreferrer">Set up recurring support</a>
+      <p class="meta">
+        Set `PUBLIC_PAYPAL_DONATE_URL` for PayPal and `PUBLIC_STRIPE_DONATE_URL` to enable Stripe with PayPal fallback.
+      </p>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:1rem;">
+      <article class="card">
+        <h2>Where funds go</h2>
+        <ul>
+          <li>Volunteer travel support for field observations</li>
+          <li>Education event logistics and rescue practice materials</li>
+          <li>Hosting and publishing tools for rapid condition updates</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h2>Need a receipt or sponsor invoice?</h2>
+        <p>Email the board for donor support, sponsorship paperwork, or matching-gift letters.</p>
+        <a
+          class="button button-secondary"
+          href="/contact?subject=Partnership%20%2F%20Sponsorship&message=I%20need%20help%20with%20a%20donation%20receipt%2C%20sponsorship%20invoice%2C%20or%20matching-gift%20letter."
+        >
+          Contact the board
+        </a>
+      </article>
+    </div>
+  </section>
+</BaseLayout>
